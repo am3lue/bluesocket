@@ -28,9 +28,9 @@ export default async function handler(req, res) {
         sql: 'INSERT INTO messages (message_id, from_user_id, to_user_id, connection_id, payload, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
         args: [message_id, session.user_id, to_user_id, connection_id, JSON.stringify(payload), timestamp]
       },
-      // Event for receiver
+      // Event for receiver - only target the most recent active connection
       {
-        sql: "INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, ?, ?, ? FROM connections WHERE user_id = ? AND status = 'ACTIVE'",
+        sql: "INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, ?, ?, ? FROM connections WHERE user_id = ? AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1",
         args: [event_type, JSON.stringify({ message_id, from_user_id: session.user_id, payload }), timestamp, to_user_id]
       }
     ]);
