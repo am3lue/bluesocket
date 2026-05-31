@@ -1,46 +1,70 @@
-# BlueSocket Database Schema
+# BlueSocket v3 Database Schema
 
-The database uses SQLite (via Turso/libsql).
+BlueSocket uses **Turso (libsql)** for edge persistence. The schema is designed to support high-concurrency stateless lookups.
 
-## Tables
+---
 
-### users
-- `user_id`: Primary Key
-- `username`: Unique username
-- `password_hash`: Password (plaintext in prototype)
-- `created_at`: Timestamp
-- `last_seen`: Last sync/heartbeat timestamp
+## 🏗️ Relational Diagram
 
-### sessions
-- `session_id`: Primary Key
-- `user_id`: Foreign Key to users
-- `refresh_token`: Token for session renewal
-- `expires_at`: Expiration timestamp
+- `users` (1) ⮕ (N) `connections`
+- `users` (1) ⮕ (N) `sessions`
+- `users` (1) ⮕ (N) `messages`
+- `groups` (1) ⮕ (N) `group_members`
 
-### devices
-- `device_id`: Primary Key
-- `user_id`: Foreign Key to users
-- `device_type`: web, mobile, etc.
+---
 
-### connections
-- `connection_id`: Primary Key
-- `user_id`: Foreign Key to users
-- `session_id`: Foreign Key to sessions
-- `device_id`: Foreign Key to devices
-- `status`: ACTIVE, INACTIVE
-- `last_sync`: Timestamp of last sync
+## 📊 Table Definitions
 
-### messages
-- `message_id`: Primary Key
-- `from_user_id`: Foreign Key to users
-- `to_user_id`: Foreign Key to users
-- `payload`: JSON stringified content
-- `timestamp`: Creation time
+### 1. `users`
+Master user records.
+- `user_id`: TEXT (Primary Key)
+- `username`: TEXT (Unique)
+- `password_hash`: TEXT
+- `created_at`: DATETIME
+- `last_seen`: DATETIME (Updated on every sync/send)
 
-### sync_events
-- `event_id`: Auto-increment Primary Key
-- `user_id`: Recipient user ID
-- `connection_id`: Recipient connection ID
-- `event_type`: message, notification, etc.
-- `payload`: JSON data
-- `timestamp`: Event creation time
+### 2. `connections`
+Active application instances.
+- `connection_id`: TEXT (Primary Key)
+- `user_id`: TEXT (FK)
+- `session_id`: TEXT (FK)
+- `device_id`: TEXT
+- `status`: TEXT ('ACTIVE', 'INACTIVE')
+- `created_at`: DATETIME
+- `last_sync`: DATETIME
+
+### 3. `messages`
+Permanent record of all communication. Used for Deep Scan.
+- `message_id`: TEXT (Primary Key)
+- `from_user_id`: TEXT (FK)
+- `to_user_id`: TEXT (Either `user_id`, `group_id`, or `COMMUNITY`)
+- `connection_id`: TEXT
+- `payload`: TEXT (JSON String)
+- `timestamp`: DATETIME
+- `status`: TEXT
+
+### 4. `sync_events`
+Transient event queue for real-time delivery.
+- `event_id`: INTEGER (Auto-increment)
+- `user_id`: TEXT (Recipient ID)
+- `connection_id`: TEXT (Target Connection)
+- `event_type`: TEXT ('message', 'notification', etc.)
+- `payload`: TEXT (JSON Stringified message details)
+- `timestamp`: DATETIME
+
+### 5. `groups` & `group_members`
+Permissions for targeted broadcasting.
+- `groups.group_id`: TEXT (Primary Key, prefixed with `GRP_`)
+- `group_members.group_id`: TEXT (FK)
+- `group_members.user_id`: TEXT (FK)
+
+---
+
+## ⚡ Indexing Strategy
+- **`sync_events(connection_id, timestamp)`**: Highly optimized for Long Polling.
+- **`messages(to_user_id, timestamp)`**: Optimized for Deep Scanning.
+- **`users(username)`**: Optimized for the Handshake Resolution.
+
+---
+
+**Tip**: Use `node scripts/initDb.js --reset` to clear all tables and recreate this schema instantly. 🧹

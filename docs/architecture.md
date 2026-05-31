@@ -1,26 +1,72 @@
-# BlueSocket Architecture
+# BlueSocket v3 Architecture & Protocol
 
-## statelessness
-BlueSocket is designed for serverless environments where persistent connections (WebSockets) are difficult to maintain. Every request is independent and carries its own authentication context.
+## 🛡️ The Philosophy of Statelessness
 
-## Core Components
+Traditional real-time systems (WebSockets) rely on a persistent TCP connection. While fast, they are expensive to scale and incompatible with serverless environments like Vercel, which "kills" processes immediately after a request.
 
-### 1. Synchronization Engine
-Instead of pushing data to clients, BlueSocket uses a "Synchronization Engine". Clients pull incremental updates using a `last_sync_timestamp`.
+**BlueSocket v3** achieves real-time speeds by shifting the responsibility of "Connection" from the RAM of the server to the **Persistence Layer** (Database).
 
-### 2. Event Store
-All communication events are stored in the database. When a message is sent, it's not just stored as a message but also as a `sync_event` for the recipient.
+---
 
-### 3. Presence System
-Presence is derived from the last time a client contacted the synchronization endpoint. 
-- **ONLINE:** < 10s since last contact.
-- **AWAY:** 10s - 60s since last contact.
-- **OFFLINE:** > 60s since last contact.
+## 🏗️ Core Components
 
-## Data Flow
+### 1. The Monolithic Middle-Man (`api/index.js`)
+To stay within the Vercel Hobby limits, the entire API is unified. It handles:
+- **Routing**: Internal path-based logic.
+- **Authentication**: JWT verification on every request.
+- **Transaction Management**: Atomic database operations.
 
-1. **Client A** sends a POST request to `/api/bluesocket/send`.
-2. **Server** validates session, stores the message, and creates a `sync_event` for **Client B**.
-3. **Client B** polls `/api/bluesocket/sync` with its `last_sync_timestamp`.
-4. **Server** returns all `sync_events` newer than the timestamp.
-5. **Client B** updates its local state and updates its `last_sync_timestamp`.
+### 2. The Sync Engine (Long-Polling)
+The protocol uses a "Wait & Notify" strategy. When a client calls `/api/sync?wait=true`:
+1.  The server checks the database for new events.
+2.  If empty, it **sleeps** (using an async delay) for 1 second.
+3.  It re-checks the database.
+4.  This repeats for up to 8-10 seconds.
+5.  If a message arrives in that window, it is returned **immediately**.
+
+### 3. Deep-Scan History
+New connections often miss the "broadcast" event sent just before they were online. BlueSocket performs a **Deep Scan** of the `messages` table during every sync, comparing the client's `last_sync_timestamp` to the global message history to ensure 100% delivery reliability.
+
+---
+
+## 🤝 The Handshake Protocol
+
+BlueSocket v3 introduces a mandatory resolution step for private communication:
+
+```mermaid
+sequenceDiagram
+    participant Client A
+    心participant Server
+    participant DB
+    
+    Client A->>Server: Resolve "Username_B"
+    Server->>DB: Query User UUID
+    DB-->>Server: Return usr_7721...
+    Server-->>Client A: Return Secure Key (UUID)
+    Client A->>Client A: Store Key in Contact Book
+```
+
+---
+
+## 📡 Messaging Logic
+
+### Broadcast (Community)
+- **Target**: `to_user_id = 'COMMUNITY'`
+- **Effect**: Server generates a `sync_event` for **every** connection currently marked as `ACTIVE`.
+
+### Targeted (Groups)
+- **Target**: `to_user_id = 'GRP_XXXX'`
+- **Effect**: Server uses a sub-query to find all `user_id`s in the `group_members` table and generates events only for them.
+
+### Secure (Private)
+- **Target**: `to_user_id = 'usr_uuid'`
+- **Effect**: 1-to-1 event generation. Completely isolated from the community feed.
+
+---
+
+## ⚡ Performance Considerations
+- **Vercel Lambda**: Requests are limited to 10s duration on Hobby.
+- **Turso DB**: Optimized for edge-latency.
+- **Payload Size**: Keep payloads under 4KB for optimal sync performance.
+
+**BlueSocket v3: Turning stateless functions into a stateful community.** 🚀🔥🍼

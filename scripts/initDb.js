@@ -13,6 +13,9 @@ async function initDb() {
     process.exit(1);
   }
 
+  // Check for reset flag
+  const shouldReset = process.argv.includes('--reset');
+
   // Ensure the URL uses https for the HTTP client if it was provided as libsql://
   const sanitizedUrl = url.startsWith('libsql://') ? url.replace('libsql://', 'https://') : url;
 
@@ -24,7 +27,31 @@ async function initDb() {
   });
 
   try {
-    console.log('Initializing BlueSocket Database...');
+    if (shouldReset) {
+      console.log('⚠️ RESET FLAG DETECTED: Cleaning database...');
+      
+      const tables = [
+        'group_members',
+        'groups',
+        'sync_events',
+        'messages',
+        'connections',
+        'devices',
+        'sessions',
+        'users',
+        'notifications',
+        'audit_logs'
+      ];
+
+      for (const table of tables) {
+        process.stdout.write(`  Dropping table ${table}... `);
+        await client.execute(`DROP TABLE IF EXISTS ${table}`);
+        console.log('✅');
+      }
+      console.log('✨ Database clean complete.');
+    }
+
+    console.log('🚀 Initializing BlueSocket Database Schema...');
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS users (
@@ -143,15 +170,15 @@ async function initDb() {
 
     // Create a default group for the demo
     try {
-        await client.execute("INSERT INTO groups (group_id, name) VALUES ('GRP_DEV', 'Developers Community')");
-        console.log('Default group GRP_DEV created.');
+        await client.execute("INSERT INTO groups (group_id, name) VALUES ('GRP_1', 'Secret Group 1')");
+        console.log('✅ Default group GRP_1 created.');
     } catch {
         // Ignore if exists
     }
 
-    console.log('Database initialization complete.');
+    console.log('🎉 Database initialization complete.');
   } catch (error) {
-    console.error('Error initializing database:', error);
+    console.error('❌ Error during database operation:', error);
   } finally {
     client.close();
   }

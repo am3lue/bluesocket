@@ -84,10 +84,31 @@ export default async function handler(req, res) {
         }
         const evs = await query('SELECT * FROM sync_events WHERE connection_id = ? AND timestamp > ? ORDER BY timestamp ASC', [connection_id, startTime]);
         events = evs.rows.map(r => ({ ...r, payload: JSON.parse(r.payload) }));
-        const msgs = await query('SELECT * FROM messages WHERE to_user_id = ? AND timestamp > ? ORDER BY timestamp ASC', [session.user_id, startTime]);
+        // 2. Deep Scan: Check messages table for missed data (Community, Groups, Private)
+        const msgs = await query(`
+          SELECT m.*, u.username as from_username 
+          FROM messages m
+          JOIN users u ON m.from_user_id = u.user_id
+          WHERE (m.to_user_id = ? OR m.to_user_id = 'COMMUNITY' OR m.to_user_id IN (SELECT group_id FROM group_members WHERE user_id = ?))
+          AND m.timestamp > ? 
+          ORDER BY m.timestamp ASC
+        `, [session.user_id, session.user_id, startTime]);
+
         msgs.rows.forEach(m => {
           if (!events.some(e => e.payload.message_id === m.message_id)) {
-            events.push({ event_id: m.message_id, event_type: 'message', timestamp: m.timestamp, payload: { message_id: m.message_id, from_user_id: m.from_user_id, target: 'PRIVATE', payload: JSON.parse(m.payload) } });
+            const targetType = m.to_user_id === 'COMMUNITY' ? 'COMMUNITY' : (m.to_user_id.startsWith('GRP_') ? m.to_user_id : 'PRIVATE');
+            events.push({ 
+              event_id: m.message_id, 
+              event_type: 'message', 
+              timestamp: m.timestamp, 
+              payload: { 
+                message_id: m.message_id, 
+                from_username: m.from_username,
+                from_user_id: m.from_user_id, 
+                target: targetType, 
+                payload: JSON.parse(m.payload) 
+              } 
+            });
           }
         });
         if (events.length > 0 || wait !== 'true') break;

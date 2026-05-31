@@ -1,61 +1,84 @@
-# BlueSocket
+# 🚀 BlueSocket v3 - The Community Protocol
 
-Stateless HTTPS-based real-time communication framework for Vercel and Turso.
+**BlueSocket** is a production-ready, stateless, HTTPS-based real-time communication framework. It is specifically designed to bypass the limitations of WebSockets in serverless environments like **Vercel** while maintaining a near real-time experience using an advanced **Long-Polling Synchronization Engine**.
 
-## Overview
+---
 
-BlueSocket is a protocol designed for high-performance, stateless real-time communication without persistent socket connections. It leverages incremental synchronization and session-based registration to achieve near real-time performance on serverless environments.
+## 🏗️ Core Architecture: "The Stateless Middle-Man"
 
-## Tech Stack
+Unlike traditional socket servers that hold an open line to every user (draining RAM and CPU), BlueSocket operates like a high-speed postal service:
 
-- **Frontend:** Vue 3, Vite, JavaScript
-- **Backend:** Vercel Serverless Functions (Node.js)
-- **Database:** Turso (LibSQL)
-- **Auth:** JWT + Session-based
+1.  **Stateless API**: Every request is independent. The server wakes up, processes a message, and dies.
+2.  **The Mailbox (Turso)**: All messages and events are stored in a highly-available SQLite edge database.
+3.  **Synchronization Engine**: Clients use a "Blocking Sync" (Long Polling) to wait for new mail. The server holds the request open until data arrives, providing instant delivery.
 
-## Quick Start
+---
 
-### 1. Prerequisites
-- Node.js installed
-- Turso account and a database created
+## 📡 3-Tier Communication Model
 
-### 2. Environment Setup
-Copy `.env.example` to `.env` and fill in your credentials:
-```bash
-cp .env.example .env
+BlueSocket is built for communities, supporting three distinct levels of visibility:
+
+1.  **🌐 COMMUNITY (Global)**: A system-wide broadcast. Every active connection receives these messages.
+2.  **👥 GROUP (Targeted)**: Messages sent to a specific `group_id`. Only verified members of that group see the data.
+3.  **🔒 PRIVATE (1-to-1)**: Secure, encrypted-at-rest communication between two specific User UUIDs.
+
+---
+
+## 🤝 The 3-Way Handshake
+
+For maximum security, BlueSocket uses an intentional handshake protocol:
+- **Phase 1 (Request)**: App A requests a connection to "Username B".
+- **Phase 2 (Resolve)**: The Middle Man validates the existence of "Username B" and retrieves their unique UUID Key.
+- **Phase 3 (Secure Session)**: App A locks all future private communication to that verified UUID Key.
+
+---
+
+## 📂 Project Structure
+
+```text
+├── api/
+│   ├── _lib/            # Shared DB, Auth, and CORS logic
+│   └── index.js         # Unified Monolithic Serverless Function
+├── docs/                # Comprehensive technical documentation
+├── scripts/
+│   ├── initDb.js        # Database setup & Reset utility
+│   ├── version1/        # Node.js automated testing bots
+│   ├── version2/        # Simple interactive HTML prototypes
+│   └── version3/        # Full Community "4-Phone" Simulation
+├── src/                 # Main Vue 3 Frontend (Admin Dashboard)
+└── vercel.json          # Deployment & Routing configuration
 ```
 
-### 3. Install Dependencies
+---
+
+## 🚀 Quick Start Guide
+
+### 1. Environment Setup
+Copy `.env.example` to `.env` and fill in your **Turso** and **JWT** credentials.
+
+### 2. Initialize Database
+Create the community schema or reset it to a clean state:
 ```bash
-npm install
+node scripts/initDb.js          # Normal Setup
+node scripts/initDb.js --reset  # Wipe and Start Over
 ```
 
-### 4. Initialize Database
-```bash
-node scripts/initDb.js
-```
+### 3. Deploy
+Push to GitHub and connect to Vercel. BlueSocket will automatically configure its monolithic API.
 
-### 5. Run Development Server
-```bash
-npm run dev
-```
+### 4. Live Test (The 4-Phone Simulation)
+Navigate to `scripts/version3/` and open `phone_a.html`, `phone_b.html`, `phone_c.html`, and `phone_d.html` in separate tabs. Watch them perform a 3-way handshake and start communicating in real-time across channels.
 
-## Documentation
+---
 
-Detailed documentation can be found in the `/docs` directory:
-- [Architecture](./docs/architecture.md)
+## 🛠️ Technical Documentation
+
+- [Detailed Usage Guide](./docs/usage-guide.md)
+- [Architecture & Protocol](./docs/architecture.md)
 - [Database Schema](./docs/database.md)
-- [Security](./docs/security.md)
-- [API Reference](./docs/api.md)
-- [Protocol Specification](./docs/bluesocket-protocol.md)
-- [Deployment](./docs/deployment.md)
-- [Admin Monitor](./docs/admin-monitor.md)
-- [Troubleshooting](./docs/troubleshooting.md)
+- [Security Model](./docs/security.md)
+- [Vercel Deployment](./docs/deployment.md)
 
-## Deployment
+---
 
-Deploy to Vercel:
-```bash
-vercel
-```
-Ensure you set the environment variables in the Vercel dashboard.
+**Built for the community. Scalable by design. 100% Stateless.** 🚀🔥🍼
