@@ -29,7 +29,7 @@ export default async function handler(req, res) {
         args: [notification_id, to_user_id, type, JSON.stringify(payload)]
       },
       {
-        sql: 'INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, "notification", ?, ? FROM connections WHERE user_id = ? AND status = "ACTIVE"',
+        sql: "INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, 'notification', ?, ? FROM connections WHERE user_id = ? AND status = 'ACTIVE'",
         args: [JSON.stringify({ notification_id, type, payload }), timestamp, to_user_id]
       }
     ]);

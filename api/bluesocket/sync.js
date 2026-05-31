@@ -37,14 +37,40 @@ export default async function handler(req, res) {
     }
 
     if (startTime) {
+      // 1. Fetch from sync_events (System events, notifications, etc.)
       const eventResult = await query(
         'SELECT * FROM sync_events WHERE connection_id = ? AND timestamp > ? ORDER BY timestamp ASC',
         [connection_id, startTime]
       );
+      
       events = eventResult.rows.map(row => ({
         ...row,
         payload: JSON.parse(row.payload)
       }));
+
+      // 2. Deep Scan: Check messages table for missed direct messages
+      const messageResult = await query(
+        'SELECT * FROM messages WHERE to_user_id = ? AND timestamp > ? ORDER BY timestamp ASC',
+        [session.user_id, startTime]
+      );
+
+      messageResult.rows.forEach(msg => {
+        // Only add if not already in events (prevent duplicates)
+        const msgPayload = JSON.parse(msg.payload);
+        if (!events.some(e => e.payload.message_id === msg.message_id)) {
+          events.push({
+            event_id: `msg_${msg.message_id}`,
+            user_id: session.user_id,
+            connection_id: connection_id,
+            event_type: 'message',
+            payload: { message_id: msg.message_id, from_user_id: msg.from_user_id, payload: msgPayload },
+            timestamp: msg.timestamp
+          });
+        }
+      });
+
+      // Sort combined events by timestamp
+      events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     }
 
     return res.status(200).json({

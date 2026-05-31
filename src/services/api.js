@@ -40,7 +40,7 @@ class ApiService {
     try {
       data = JSON.parse(text);
     } catch (e) {
-      throw new Error(`Invalid JSON response from server: ${text.substring(0, 100)}`);
+      throw new Error(`Invalid JSON response from server: ${text.substring(0, 100)}`, { cause: e });
     }
 
     if (!response.ok) {
