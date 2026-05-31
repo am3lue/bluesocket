@@ -1,19 +1,28 @@
 import { createClient } from '@libsql/client/http';
 import dotenv from 'dotenv';
 
-dotenv.config();
-
-let url = process.env.TURSO_DATABASE_URL;
-if (url && url.startsWith('libsql://')) {
-  url = url.replace('libsql://', 'https://');
-}
-
-const client = createClient({
-  url: url,
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
-
 async function initDb() {
+  // 1. Load Environment Variables first
+  dotenv.config();
+
+  const url = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (!url) {
+    console.error('❌ Error: TURSO_DATABASE_URL is not defined in your .env file.');
+    process.exit(1);
+  }
+
+  // Ensure the URL uses https for the HTTP client if it was provided as libsql://
+  const sanitizedUrl = url.startsWith('libsql://') ? url.replace('libsql://', 'https://') : url;
+
+  console.log(`Connecting to: ${sanitizedUrl}`);
+
+  const client = createClient({
+    url: sanitizedUrl,
+    authToken: authToken,
+  });
+
   try {
     console.log('Initializing BlueSocket Database...');
 
@@ -112,6 +121,33 @@ async function initDb() {
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS groups (
+        group_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS group_members (
+        group_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (group_id, user_id),
+        FOREIGN KEY (group_id) REFERENCES groups (group_id),
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
+      );
+    `);
+
+    // Create a default group for the demo
+    try {
+        await client.execute("INSERT INTO groups (group_id, name) VALUES ('GRP_DEV', 'Developers Community')");
+        console.log('Default group GRP_DEV created.');
+    } catch {
+        // Ignore if exists
+    }
 
     console.log('Database initialization complete.');
   } catch (error) {

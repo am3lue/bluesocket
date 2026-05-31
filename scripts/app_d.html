@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BlueSocket Community - App A</title>
+    <title>BlueSocket Community - App D</title>
     <style>
-        :root { --primary: #00a8ff; --bg: #0a0a0b; --card: #141417; --text: #f0f0f2; --dim: #9ea0a5; --border: rgba(255, 255, 255, 0.08); --success: #00d2d3; }
+        :root { --primary: #ff9f43; --bg: #0a0a0b; --card: #141417; --text: #f0f0f2; --dim: #9ea0a5; --border: rgba(255, 255, 255, 0.08); --success: #00d2d3; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .container { width: 90%; max-width: 500px; background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 1.5rem; display: flex; flex-direction: column; height: 80vh; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .community-badge { background: rgba(0, 168, 255, 0.1); color: var(--primary); padding: 4px 12px; border-radius: 100px; font-size: 0.75rem; font-weight: 800; letter-spacing: 1px; }
+        .community-badge { background: rgba(255, 159, 67, 0.1); color: var(--primary); padding: 4px 12px; border-radius: 100px; font-size: 0.75rem; font-weight: 800; letter-spacing: 1px; }
         .chat-window { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 16px; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 12px; margin-bottom: 1rem; }
         .message { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; line-height: 1.4; position: relative; }
         .message.sent { align-self: flex-end; background: var(--primary); color: #000; font-weight: 500; border-bottom-right-radius: 4px; }
@@ -18,7 +18,7 @@
         .msg-meta { font-size: 0.6rem; opacity: 0.5; margin-top: 4px; text-align: right; }
         .input-area { display: flex; gap: 8px; }
         input { flex: 1; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 12px; padding: 12px; color: #fff; outline: none; transition: 0.2s; }
-        input:focus { border-color: var(--primary); background: rgba(255,255,255,0.08); }
+        input:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.08); }
         button { background: var(--primary); border: none; color: #000; padding: 0 18px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; }
         button:hover { transform: scale(1.05); }
         button:disabled { opacity: 0.5; transform: none; }
@@ -29,7 +29,7 @@
     <div class="container">
         <div class="header">
             <div class="community-badge">COMMUNITY SQUARE</div>
-            <div class="user-tag" id="user-display">App A</div>
+            <div class="user-tag" id="user-display">App D</div>
         </div>
         <div class="chat-window" id="chat"></div>
         <form class="input-area" id="msg-form">
@@ -40,7 +40,7 @@
 
     <script>
         const BASE_URL = 'https://bluesocket-six.vercel.app/api';
-        const APP_IDENTITY = { username: 'App_A', password: '143Anna_A' }; // Unique identity
+        const APP_IDENTITY = { username: 'App_D', password: '143Anna_D' }; // Unique identity
         
         const chatEl = document.getElementById('chat');
         const formEl = document.getElementById('msg-form');
@@ -75,7 +75,7 @@
                 const regRes = await fetch(`${BASE_URL}/bluesocket/register`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device_id: 'COMMUNITY_NODE_A', device_type: 'web' })
+                    body: JSON.stringify({ device_id: 'COMMUNITY_NODE_D', device_type: 'web' })
                 });
                 const regData = await regRes.json();
                 connId = regData.connection_id;

@@ -25,18 +25,35 @@ export default async function handler(req, res) {
     const message_id = `msg_${uuidv4().replace(/-/g, '')}`;
     const timestamp = new Date().toISOString();
 
-    // Store message and create sync events for both sender (for sync acknowledgement) and receiver
-    await transaction([
+    // Store message and create sync events
+    const queries = [
       {
         sql: 'INSERT INTO messages (message_id, from_user_id, to_user_id, connection_id, payload, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
         args: [message_id, session.user_id, to_user_id, connection_id, JSON.stringify(payload), timestamp]
-      },
-      // Event for receiver - only target the most recent active connection
-      {
-        sql: "INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, ?, ?, ? FROM connections WHERE user_id = ? AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1",
-        args: [event_type, JSON.stringify({ message_id, from_user_id: session.user_id, payload }), timestamp, to_user_id]
       }
-    ]);
+    ];
+
+    if (to_user_id === 'COMMUNITY') {
+      // Broadcast to EVERYONE who is active
+      queries.push({
+        sql: "INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, ?, ?, ? FROM connections WHERE status = 'ACTIVE'",
+        args: [event_type, JSON.stringify({ message_id, from_username: session.username, from_user_id: session.user_id, target: 'COMMUNITY', payload }), timestamp]
+      });
+    } else if (to_user_id.startsWith('GRP_')) {
+      // Group Broadcast: Find all users in this group and send to their active connections
+      queries.push({
+        sql: "INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, ?, ?, ? FROM connections WHERE status = 'ACTIVE' AND user_id IN (SELECT user_id FROM group_members WHERE group_id = ?)",
+        args: [event_type, JSON.stringify({ message_id, from_username: session.username, from_user_id: session.user_id, target: to_user_id, payload }), timestamp, to_user_id]
+      });
+    } else {
+      // Private message to a specific user's active connections
+      queries.push({
+        sql: "INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, ?, ?, ? FROM connections WHERE user_id = ? AND status = 'ACTIVE'",
+        args: [event_type, JSON.stringify({ message_id, from_username: session.username, from_user_id: session.user_id, target: 'PRIVATE', payload }), timestamp, to_user_id]
+      });
+    }
+
+    await transaction(queries);
 
     return res.status(200).json({
       sync_status: 'success',

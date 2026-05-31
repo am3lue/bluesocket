@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlueSocket Multi-Channel Demo</title>
+    <style>
+        :root { --primary: #00a8ff; --bg: #0a0a0b; --card: #141417; --text: #f0f0f2; --dim: #9ea0a5; --border: rgba(255, 255, 255, 0.08); --success: #00d2d3; --purple: #c792ea; --orange: #ff9f43; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { width: 95%; max-width: 550px; background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 1.5rem; display: flex; flex-direction: column; height: 85vh; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .mode-badge { padding: 4px 12px; border-radius: 100px; font-size: 0.7rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+        .mode-community { background: rgba(0, 168, 255, 0.1); color: var(--primary); }
+        .mode-group { background: rgba(199, 146, 234, 0.1); color: var(--purple); }
+        .mode-private { background: rgba(255, 159, 67, 0.1); color: var(--orange); }
+        
+        .chat-window { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 16px; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 12px; margin-bottom: 1rem; }
+        .message { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; line-height: 1.4; position: relative; }
+        .message.sent { align-self: flex-end; background: var(--primary); color: #000; font-weight: 500; border-bottom-right-radius: 4px; }
+        .message.received { align-self: flex-start; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+        .sender { font-size: 0.65rem; font-weight: 800; margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
+        .target-tag { font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; background: rgba(255,255,255,0.1); }
+        .msg-meta { font-size: 0.6rem; opacity: 0.5; margin-top: 4px; text-align: right; }
+        
+        .controls { display: flex; flex-direction: column; gap: 8px; }
+        .channel-selector { display: flex; gap: 8px; margin-bottom: 4px; }
+        .channel-btn { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; padding: 6px; color: var(--dim); cursor: pointer; font-size: 0.75rem; font-weight: 700; transition: 0.2s; }
+        .channel-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
+        
+        .input-row { display: flex; gap: 8px; }
+        input { flex: 1; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 12px; padding: 12px; color: #fff; outline: none; }
+        input:focus { border-color: var(--primary); }
+        .target-input { width: 100px; font-size: 0.8rem; }
+        
+        button.send-btn { background: var(--primary); border: none; color: #000; padding: 0 20px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div id="badge" class="mode-badge mode-community">COMMUNITY</div>
+            <div style="font-size: 0.75rem;" id="username-display">...</div>
+        </div>
+
+        <div class="chat-window" id="chat"></div>
+
+        <div class="controls">
+            <div class="channel-selector">
+                <button class="channel-btn active" onclick="setMode('COMMUNITY')">COMMUNITY</button>
+                <button class="channel-btn" onclick="setMode('GROUP')">GROUP</button>
+                <button class="channel-btn" onclick="setMode('PRIVATE')">PRIVATE</button>
+            </div>
+            
+            <form class="input-row" id="msg-form">
+                <input type="text" id="target-id" class="target-input" placeholder="ID..." style="display:none">
+                <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off">
+                <button type="submit" class="send-btn" id="send-btn" disabled>SEND</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'https://bluesocket-six.vercel.app/api';
+        
+        // --- CONFIGURATION ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const APP_NAME = urlParams.get('name') || 'App_A';
+        const APP_IDENTITY = { username: APP_NAME, password: `Password_${APP_NAME}` };
+
+        const chatEl = document.getElementById('chat');
+        const inputEl = document.getElementById('msg-input');
+        const targetEl = document.getElementById('target-id');
+        const sendBtn = document.getElementById('send-btn');
+        const badge = document.getElementById('badge');
+        const usernameDisplay = document.getElementById('username-display');
+
+        let token, userId, connId, lastSync = null;
+        let currentMode = 'COMMUNITY';
+        const processedMessages = new Set();
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.channel-btn').forEach(b => {
+                b.classList.toggle('active', b.innerText === mode);
+            });
+            
+            badge.className = `mode-badge mode-${mode.toLowerCase()}`;
+            badge.innerText = mode;
+            targetEl.style.display = (mode === 'COMMUNITY') ? 'none' : 'block';
+            targetEl.placeholder = (mode === 'GROUP') ? 'GRP_ID...' : 'USER_ID...';
+        }
+
+        function addMessage(text, type, sender, target) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            let targetLabel = '';
+            if (target === 'COMMUNITY') targetLabel = '<span class="target-tag">🌐 ALL</span>';
+            else if (target.startsWith('GRP_')) targetLabel = `<span class="target-tag">👥 ${target}</span>`;
+            else targetLabel = '<span class="target-tag">🔒 PVT</span>';
+
+            div.innerHTML = `<div class="sender">${sender} ${targetLabel}</div><div>${text}</div><div class="msg-meta">${time}</div>`;
+            chatEl.appendChild(div);
+            chatEl.scrollTop = chatEl.scrollHeight;
+        }
+
+        async function init() {
+            usernameDisplay.innerText = `Connecting as ${APP_NAME}...`;
+            const authRes = await fetch(`${BASE_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(APP_IDENTITY)
+            });
+            const authData = await authRes.json();
+            token = authData.token;
+            userId = authData.user.user_id;
+
+            const regRes = await fetch(`${BASE_URL}/bluesocket/register`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: `DEVICE_${APP_NAME}`, device_type: 'web' })
+            });
+            const regData = await regRes.json();
+            connId = regData.connection_id;
+
+            usernameDisplay.innerHTML = `Signed in as <b>${APP_NAME}</b><br><small style="color:var(--dim)">ID: ${userId}</small>`;
+            sendBtn.disabled = false;
+            startSync();
+            
+            // Auto-join demo group GRP_DEV
+            fetch(`${BASE_URL}/admin/stats`); // Dummy call to ensure DB is awake
+        }
+
+        async function startSync() {
+            while (true) {
+                try {
+                    const url = `${BASE_URL}/bluesocket/sync?connection_id=${connId}&wait=true${lastSync ? `&last_sync_timestamp=${lastSync}` : ''}`;
+                    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+                    const data = await res.json();
+                    lastSync = data.server_timestamp;
+
+                    data.events?.forEach(event => {
+                        const msgId = event.payload.message_id;
+                        const payload = event.payload.payload;
+                        const fromName = event.payload.from_username;
+                        const target = event.payload.target;
+                        
+                        if (!processedMessages.has(msgId) && event.payload.from_user_id !== userId) {
+                            processedMessages.add(msgId);
+                            addMessage(payload.text, "received", fromName, target);
+                        }
+                    });
+                } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
+            }
+        }
+
+        document.getElementById('msg-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            let finalTarget = 'COMMUNITY';
+            if (currentMode === 'GROUP') finalTarget = targetEl.value.trim() || 'GRP_DEV';
+            if (currentMode === 'PRIVATE') finalTarget = targetEl.value.trim();
+
+            inputEl.value = '';
+            addMessage(text, "sent", "ME", finalTarget);
+
+            await fetch(`${BASE_URL}/bluesocket/send`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: finalTarget, connection_id: connId, payload: { text } })
+            });
+        };
+
+        init();
+    </script>
+</body>
+</html>
