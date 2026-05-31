@@ -26,18 +26,25 @@ export default async function handler(req, res) {
 
     // 2. Fetch new events
     let events = [];
-    if (last_sync_timestamp) {
+    let startTime = last_sync_timestamp;
+    
+    if (!startTime) {
+      // If no last_sync_timestamp, get events since connection creation
+      const connResult = await query('SELECT created_at FROM connections WHERE connection_id = ?', [connection_id]);
+      if (connResult.rows.length > 0) {
+        startTime = connResult.rows[0].created_at;
+      }
+    }
+
+    if (startTime) {
       const eventResult = await query(
         'SELECT * FROM sync_events WHERE connection_id = ? AND timestamp > ? ORDER BY timestamp ASC',
-        [connection_id, last_sync_timestamp]
+        [connection_id, startTime]
       );
       events = eventResult.rows.map(row => ({
         ...row,
         payload: JSON.parse(row.payload)
       }));
-    } else {
-      // First sync or reset - maybe return some history or just empty
-      events = [];
     }
 
     return res.status(200).json({
