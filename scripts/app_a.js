@@ -3,7 +3,7 @@
  */
 
 const BASE_URL = 'https://bluesocket-six.vercel.app/api';
-const AUTH = { username: 'am3lue', password: '143anna' };
+const AUTH = { username: 'am3lue', password: '143Anna' };
 
 const colors = { reset: "\x1b[0m", app: "\x1b[36m", server: "\x1b[33m", success: "\x1b[32m", error: "\x1b[31m" };
 const log = (msg) => console.log(`${colors.app}[APP_A]${colors.reset} ${msg}`);

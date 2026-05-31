@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlueSocket - App B (Incrementor)</title>
+    <style>
+        :root {
+            --primary: #c792ea;
+            --bg: #0a0a0b;
+            --card: #141417;
+            --text: #f0f0f2;
+            --dim: #9ea0a5;
+            --border: rgba(255, 255, 255, 0.08);
+            --success: #00d2d3;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 90%;
+            max-width: 500px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .app-badge {
+            background: rgba(199, 146, 234, 0.1);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .counter-display {
+            text-align: center;
+            font-size: 4rem;
+            font-weight: 800;
+            margin: 1rem 0;
+            color: var(--primary);
+            text-shadow: 0 0 20px rgba(199, 146, 234, 0.3);
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--dim);
+            margin-bottom: 2rem;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--dim);
+        }
+        .dot.active { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        
+        .log-window {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            height: 150px;
+            overflow-y: auto;
+            padding: 1rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            color: var(--dim);
+        }
+        .log-entry { margin-bottom: 4px; }
+        .log-ts { color: #555; margin-right: 6px; }
+        .log-msg.highlight { color: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="app-badge">APP B (INCREMENTOR)</div>
+            <div id="conn-id" style="font-size: 0.7rem; color: var(--dim);">Connecting...</div>
+        </div>
+
+        <div class="counter-display" id="counter">0</div>
+        
+        <div class="status">
+            <div id="status-dot" class="dot"></div>
+            <span id="status-text">Initializing Protocol...</span>
+        </div>
+
+        <div class="log-window" id="logs">
+            <div class="log-entry">Waiting for App A to start...</div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'https://bluesocket-six.vercel.app/api';
+        const AUTH = { username: 'am3lue', password: '143Anna' };
+        
+        const counterEl = document.getElementById('counter');
+        const logsEl = document.getElementById('logs');
+        const statusText = document.getElementById('status-text');
+        const statusDot = document.getElementById('status-dot');
+        const connIdEl = document.getElementById('conn-id');
+
+        let highestSeen = 0;
+        const processedMessages = new Set();
+
+        function addLog(msg, highlight = false) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const ts = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="log-ts">[${ts}]</span><span class="log-msg ${highlight ? 'highlight' : ''}">${msg}</span>`;
+            logsEl.prepend(entry);
+        }
+
+        async function start() {
+            try {
+                addLog('Authenticating...');
+                const authRes = await fetch(`${BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(AUTH)
+                });
+                const { token, user } = await authRes.json();
+                const userId = user.user_id;
+
+                addLog('Registering Connection...');
+                const regRes = await fetch(`${BASE_URL}/bluesocket/register`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: 'BROWSER_APP_B', device_type: 'web' })
+                });
+                const { connection_id: connId } = await regRes.json();
+                connIdEl.innerText = connId;
+                statusDot.className = 'dot active';
+                statusText.innerText = 'Online - Reactive Mode';
+
+                const sendNumber = async (num) => {
+                    addLog(`Sending: ${num}`, true);
+                    counterEl.innerText = num;
+                    await fetch(`${BASE_URL}/bluesocket/send`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to_user_id: userId,
+                            connection_id: connId,
+                            payload: { counter: num, sender: 'APP_B' }
+                        })
+                    });
+                };
+
+                let lastSync = null;
+                while (true) {
+                    statusText.innerText = 'Listening for App A (Long Polling)...';
+                    const url = `${BASE_URL}/bluesocket/sync?connection_id=${connId}&wait=true${lastSync ? `&last_sync_timestamp=${lastSync}` : ''}`;
+                    
+                    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+                    const data = await res.json();
+                    lastSync = data.server_timestamp;
+
+                    if (data.events) {
+                        for (const event of data.events) {
+                            const msgId = event.payload.message_id;
+                            const payload = event.payload.payload;
+
+                            if (processedMessages.has(msgId)) continue;
+                            processedMessages.add(msgId);
+
+                            if (payload.sender === 'APP_A' && payload.counter > highestSeen) {
+                                highestSeen = payload.counter;
+                                addLog(`Received from APP_A: ${payload.counter}`, true);
+                                counterEl.innerText = payload.counter;
+                                
+                                statusText.innerText = 'Cooling down...';
+                                await new Promise(r => setTimeout(r, 1000));
+                                await sendNumber(payload.counter + 1);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                addLog('Fatal Error: ' + err.message);
+                statusDot.className = 'dot';
+                statusText.innerText = 'Error - Reconnecting...';
+                setTimeout(start, 5000);
+            }
+        }
+
+        start();
+    </script>
+</body>
+</html>

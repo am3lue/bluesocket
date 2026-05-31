@@ -1,8 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../_lib/db.js';
 import { generateToken } from '../_lib/auth.js';
+import { setCorsHeaders } from '../_lib/cors.js';
 
 export default async function handler(req, res) {
+  if (setCorsHeaders(req, res)) return;
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
