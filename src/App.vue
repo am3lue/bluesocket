@@ -111,6 +111,12 @@ const handleLogout = async () => {
   -webkit-text-fill-color: transparent;
 }
 
+@media (max-width: 600px) {
+  .logo-text {
+    display: none;
+  }
+}
+
 .main-nav {
   display: flex;
   gap: 0.5rem;
@@ -129,6 +135,15 @@ const handleLogout = async () => {
   gap: 0.5rem;
 }
 
+@media (max-width: 600px) {
+  .nav-link {
+    padding: 0.5rem;
+  }
+  .nav-link .nav-text {
+    display: none;
+  }
+}
+
 .nav-link:hover {
   color: var(--text-main);
   background: rgba(255, 255, 255, 0.05);
@@ -144,6 +159,12 @@ const handleLogout = async () => {
   height: 24px;
   background: var(--border);
   margin: 0 0.5rem;
+}
+
+@media (max-width: 400px) {
+  .divider {
+    display: none;
+  }
 }
 
 .notifications-wrapper {

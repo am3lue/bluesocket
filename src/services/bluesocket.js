@@ -6,10 +6,15 @@ export const bsState = reactive({
   connection: JSON.parse(localStorage.getItem('bs_connection')) || null,
   lastSync: localStorage.getItem('bs_last_sync') || null,
   events: [],
+  messages: JSON.parse(localStorage.getItem('bs_messages')) || [],
   notifications: [],
   isSyncing: false,
   syncInterval: 2000, // Default 2 seconds
 });
+
+function saveMessages() {
+  localStorage.setItem('bs_messages', JSON.stringify(bsState.messages));
+}
 
 let syncTimer = null;
 
@@ -44,15 +49,36 @@ export const blueSocket = {
     try {
       const data = await api.get('/bluesocket/sync', {
         connection_id: bsState.connection.connection_id,
-        last_sync_timestamp: bsState.lastSync
+        last_sync_timestamp: bsState.lastSync,
+        wait: 'true'
       });
 
       if (data.events && data.events.length > 0) {
-        bsState.events = [...bsState.events, ...data.events];
-        
-        // Extract notifications from events
         data.events.forEach(event => {
-          if (event.event_type === 'notification') {
+          if (event.event_type === 'message') {
+            const msgData = event.payload;
+            const message_id = msgData.message_id;
+            const txId = msgData.payload.txId;
+
+            // Deduplicate
+            const existing = bsState.messages.find(m => (txId && m.txId === txId) || (message_id && m.message_id === message_id));
+            
+            if (existing) {
+              existing.message_id = message_id;
+              existing.status = 'delivered';
+            } else {
+              bsState.messages.push({
+                message_id,
+                txId,
+                from_user_id: msgData.from_user_id,
+                from_username: msgData.from_username,
+                to_user_id: msgData.target,
+                text: msgData.payload.text,
+                timestamp: event.timestamp,
+                status: 'received'
+              });
+            }
+          } else if (event.event_type === 'notification') {
             bsState.notifications.unshift({
               id: event.payload.notification_id,
               type: event.payload.type,
@@ -62,6 +88,7 @@ export const blueSocket = {
             });
           }
         });
+        saveMessages();
       }
 
       bsState.lastSync = data.server_timestamp;
@@ -114,14 +141,35 @@ export const blueSocket = {
   async sendMessage(toUserId, payload) {
     if (!bsState.connection) throw new Error('Not registered');
 
+    const txId = uuidv4();
+    const optimisticMsg = {
+      txId,
+      from_user_id: bsState.connection.user_id,
+      from_username: 'ME',
+      to_user_id: toUserId,
+      text: payload.text,
+      timestamp: new Date().toISOString(),
+      status: 'pending'
+    };
+
+    bsState.messages.push(optimisticMsg);
+    saveMessages();
+
     try {
       const data = await api.post('/bluesocket/send', {
         to_user_id: toUserId,
         connection_id: bsState.connection.connection_id,
-        payload
+        payload: { ...payload, txId }
       });
+      
+      optimisticMsg.message_id = data.message_id;
+      optimisticMsg.status = 'sent';
+      saveMessages();
+      
       return data;
     } catch (error) {
+      optimisticMsg.status = 'error';
+      saveMessages();
       console.error('Send message failed', error);
       throw error;
     }

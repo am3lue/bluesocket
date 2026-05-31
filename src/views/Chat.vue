@@ -1,9 +1,18 @@
 <template>
-  <div class="chat-view">
+  <div class="chat-view" :class="{ 'mobile-chat-active': selectedUserId }">
     <div class="sidebar">
       <UserList :users="users" :active-user-id="selectedUserId" @select-user="selectUser" />
     </div>
     <div class="main-chat">
+      <div v-if="selectedUserId" class="mobile-header">
+        <button @click="selectedUserId = null" class="back-btn">
+          <span>←</span>
+        </button>
+        <div class="user-info">
+          <span class="username">{{ selectedUser?.username }}</span>
+          <span class="status">online</span>
+        </div>
+      </div>
       <ChatWindow 
         v-if="selectedUserId" 
         :user="selectedUser" 
@@ -11,7 +20,11 @@
         @send-message="sendMessage" 
       />
       <div v-else class="no-selection">
-        <p>Select a user to start chatting</p>
+        <div class="welcome-card glass">
+          <div class="welcome-icon">💬</div>
+          <h3>Select a conversation</h3>
+          <p>Choose a user from the list to start chatting</p>
+        </div>
       </div>
     </div>
   </div>
@@ -106,7 +119,8 @@ onUnmounted(() => {
 
 .sidebar {
   width: 300px;
-  border-right: 1px solid #333;
+  border-right: 1px solid var(--border);
+  background: var(--bg-sidebar);
   overflow-y: auto;
 }
 
@@ -114,6 +128,43 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: rgba(0,0,0,0.1);
+}
+
+.mobile-header {
+  display: none;
+  padding: 0.75rem 1rem;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 1rem;
+}
+
+.back-btn {
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-info .username {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.user-info .status {
+  font-size: 0.75rem;
+  color: var(--success);
 }
 
 .no-selection {
@@ -121,6 +172,54 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  color: #666;
+  padding: 2rem;
+}
+
+.welcome-card {
+  text-align: center;
+  padding: 3rem;
+  border-radius: 24px;
+  max-width: 400px;
+}
+
+.welcome-icon {
+  font-size: 3rem;
+  margin-bottom: 1.5rem;
+}
+
+.welcome-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.welcome-card p {
+  color: var(--text-dim);
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    display: block;
+  }
+  
+  .main-chat {
+    display: none;
+  }
+  
+  .chat-view.mobile-chat-active .sidebar {
+    display: none;
+  }
+  
+  .chat-view.mobile-chat-active .main-chat {
+    display: flex;
+    position: fixed;
+    inset: 64px 0 0 0; /* Adjust for header height */
+    z-index: 100;
+  }
+  
+  .mobile-header {
+    display: flex;
+  }
 }
 </style>

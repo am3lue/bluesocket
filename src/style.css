@@ -97,3 +97,30 @@ body {
   background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 0 0 4px var(--primary-glow);
 }
+
+/* Mobile Utilities */
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+.responsive-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (max-width: 480px) {
+  .responsive-container {
+    padding: 0 0.5rem;
+  }
+}
+

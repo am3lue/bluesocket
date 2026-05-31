@@ -106,6 +106,12 @@ watch(() => props.user?.user_id, scrollToBottom);
   border-top: none;
 }
 
+@media (max-width: 768px) {
+  .chat-header {
+    display: none;
+  }
+}
+
 .user-meta {
   display: flex;
   align-items: center;

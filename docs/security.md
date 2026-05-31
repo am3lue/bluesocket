@@ -32,5 +32,6 @@ BlueSocket is designed with a "Defense in Depth" approach to secure a stateless 
 ## ⚠️ 5. Production Recommendations
 - **Password Hashing**: The current prototype uses plaintext for demo speed. **Production requires Argon2/bcrypt hashing.**
 - **Secret Management**: Ensure `JWT_SECRET` is at least 32 characters long and rotated periodically.
+- **Full Risk Assessment**: Review the [Weaknesses & Limitations](./weaknesses.md) document for other security considerations.
 
 **Secure. Intentional. Stateless.** 🚀🔥🍼🛡️

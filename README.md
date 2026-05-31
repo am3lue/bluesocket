@@ -4,6 +4,12 @@
 
 ---
 
+## 🚀 Quick Start & Setup
+
+New to BlueSocket? Check out the **[Complete Setup Guide](./docs/setup.md)** to get your edge database and API running in minutes.
+
+---
+
 ## 🏗️ Core Architecture: "The Stateless Middle-Man"
 
 Unlike traditional socket servers that hold an open line to every user (draining RAM and CPU), BlueSocket operates like a high-speed postal service:
@@ -78,6 +84,7 @@ Navigate to `scripts/version3/` and open `phone_a.html`, `phone_b.html`, `phone_
 - [Database Schema](./docs/database.md)
 - [Security Model](./docs/security.md)
 - [Vercel Deployment](./docs/deployment.md)
+- [Weaknesses & Limitations](./docs/weaknesses.md)
 
 ---
 

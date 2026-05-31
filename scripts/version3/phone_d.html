@@ -8,10 +8,33 @@
         :root { --primary: #ff9f43; --bg: #0a0a0b; --sidebar: #111113; --card: #141417; --text: #f0f0f2; --dim: #9ea0a5; --border: rgba(255, 255, 255, 0.08); --success: #00d2d3; }
         * { box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; }
-        .header { padding: 1rem; background: var(--sidebar); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .user-info { font-size: 0.8rem; font-weight: 700; color: var(--primary); }
-        .layout { display: flex; flex: 1; overflow: hidden; }
-        .sidebar { width: 200px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .header { padding: 1rem; background: var(--sidebar); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+        .user-info { font-size: 0.8rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 10px; }
+        .menu-btn { display: none; background: none; border: none; color: var(--text); font-size: 1.2rem; cursor: pointer; padding: 0; }
+        
+        .layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+        .sidebar { width: 240px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s ease; }
+        
+        @media (max-width: 768px) {
+            .menu-btn { display: block; }
+            .sidebar { 
+                position: absolute; 
+                left: 0; top: 0; bottom: 0; 
+                z-index: 50; 
+                transform: translateX(-100%); 
+                box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            }
+            .sidebar.active { transform: translateX(0); }
+            .sidebar-overlay { 
+                display: none; 
+                position: absolute; 
+                inset: 0; 
+                background: rgba(0,0,0,0.5); 
+                z-index: 40; 
+            }
+            .sidebar-overlay.active { display: block; }
+        }
+
         .sidebar-scroll { flex: 1; overflow-y: auto; padding: 1rem; }
         .section-label { font-size: 0.6rem; font-weight: 800; color: var(--dim); text-transform: uppercase; margin: 1.2rem 0 0.5rem; letter-spacing: 1px; }
         .nav-item { padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; margin-bottom: 4px; transition: 0.2s; display: flex; align-items: center; gap: 8px; position: relative;}
@@ -68,16 +91,21 @@
     </div>
 
     <script>
-        const BASE = 'https://bluesocket-six.vercel.app/api';
+        const BASE = window.location.origin + '/api';
         const IDENTITY = { name: 'Client_D', pass: '143Anna_D' };
         const PEERS = ['Client_A', 'Client_B', 'Client_C'];
         
         let token, uid, cid, lastSync = null, currentTarget = 'COMMUNITY';
-        const channelHistory = { COMMUNITY: [], GRP_1: [] };
+        let channelHistory = JSON.parse(localStorage.getItem(`bs_history_${IDENTITY.name}`)) || { COMMUNITY: [], GRP_1: [] };
         const processed = new Set();
         const contactBook = {}; 
 
+        function saveHistory() {
+            localStorage.setItem(`bs_history_${IDENTITY.name}`, JSON.stringify(channelHistory));
+        }
+
         async function init() {
+            render();
             try {
                 const r1 = await fetch(`${BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: IDENTITY.name, password: IDENTITY.pass }) });
                 const d1 = await r1.json(); token = d1.token; uid = d1.user.user_id;
@@ -134,7 +162,8 @@
             (channelHistory[currentTarget] || []).forEach(msg => {
                 const d = document.createElement('div');
                 d.className = `msg ${msg.type}`;
-                d.innerHTML = `<div class="msg-sender">${msg.sender}</div>${msg.text}`;
+                const status = msg.status === 'pending' ? ' <small style="opacity:0.5">...</small>' : '';
+                d.innerHTML = `<div class="msg-sender">${msg.sender}</div>${msg.text}${status}`;
                 m.appendChild(d);
             });
             m.scrollTop = m.scrollHeight;
@@ -144,27 +173,74 @@
             e.preventDefault();
             const i = document.getElementById('in');
             const text = i.value; if(!text) return; i.value = '';
+            
+            const txId = 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            const msg = { text, type: 'sent', sender: 'ME', txId, status: 'pending', timestamp: new Date().toISOString() };
+            
             channelHistory[currentTarget] = channelHistory[currentTarget] || [];
-            channelHistory[currentTarget].push({ text, type: 'sent', sender: 'ME' });
+            channelHistory[currentTarget].push(msg);
+            saveHistory();
             render();
-            fetch(`${BASE}/bluesocket/send`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ to_user_id: currentTarget, connection_id: cid, payload: { text } }) });
+
+            try {
+                const r = await fetch(`${BASE}/bluesocket/send`, { 
+                    method: 'POST', 
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        to_user_id: currentTarget, 
+                        connection_id: cid, 
+                        payload: { text, txId } 
+                    }) 
+                });
+                const data = await r.json();
+                msg.message_id = data.message_id;
+                msg.status = 'sent';
+                saveHistory();
+                render();
+            } catch (e) {
+                console.error('Send failed', e);
+            }
         }
 
         async function sync() {
             while(true) {
                 try {
                     const r = await fetch(`${BASE}/bluesocket/sync?connection_id=${cid}&wait=true${lastSync ? `&last_sync_timestamp=${lastSync}` : ''}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                    const d = await r.json(); lastSync = d.server_timestamp;
+                    const d = await r.json(); 
+                    if (d.server_timestamp) lastSync = d.server_timestamp;
+                    
                     d.events?.forEach(e => {
-                        if(!processed.has(e.payload.message_id) && e.payload.from_user_id !== uid) {
-                            processed.add(e.payload.message_id);
-                            const channelKey = (e.payload.target === 'COMMUNITY' || e.payload.target === 'GRP_1') ? e.payload.target : e.payload.from_user_id;
-                            channelHistory[channelKey] = channelHistory[channelKey] || [];
-                            channelHistory[channelKey].push({ text: e.payload.payload.text, type: 'received', sender: e.payload.from_username });
-                            if(channelKey === currentTarget) render();
+                        const message_id = e.payload.message_id;
+                        const txId = e.payload.payload.txId;
+                        
+                        if(processed.has(message_id)) return;
+                        processed.add(message_id);
+
+                        const channelKey = (e.payload.target === 'COMMUNITY' || e.payload.target === 'GRP_1') ? e.payload.target : e.payload.from_user_id;
+                        channelHistory[channelKey] = channelHistory[channelKey] || [];
+
+                        const existing = channelHistory[channelKey].find(m => (txId && m.txId === txId) || (message_id && m.message_id === message_id));
+                        
+                        if (existing) {
+                            existing.message_id = message_id;
+                            existing.status = 'delivered';
+                        } else if (e.payload.from_user_id !== uid) {
+                            channelHistory[channelKey].push({ 
+                                text: e.payload.payload.text, 
+                                type: 'received', 
+                                sender: e.payload.from_username,
+                                message_id: message_id,
+                                timestamp: e.timestamp
+                            });
                         }
+                        
+                        saveHistory();
+                        if(channelKey === currentTarget) render();
                     });
-                } catch(e) { await new Promise(r => setTimeout(r, 2000)); }
+                } catch(e) { 
+                    console.error('Sync error', e);
+                    await new Promise(r => setTimeout(r, 2000)); 
+                }
             }
         }
         init();

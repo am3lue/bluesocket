@@ -15,6 +15,9 @@ BlueSocket is optimized for Vercel.
    - Output Directory: `dist`
 4. **Deploy:** Hit deploy.
 
+### 📝 SPA Routing Note
+The project includes a `vercel.json` file that handles Single Page Application (SPA) routing. This ensures that refreshing the page on any sub-route (like `/chat` or `/admin`) correctly redirects to `index.html` instead of giving a 404 error.
+
 ## Database Migration
 After deployment, or locally, run the init script to set up tables:
 ```bash

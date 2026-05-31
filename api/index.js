@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { query, transaction } from './_lib/db.js';
+import { query } from './_lib/db.js';
 import { generateToken, validateSession } from './_lib/auth.js';
 import { setCorsHeaders } from './_lib/cors.js';
 
@@ -38,10 +38,14 @@ export default async function handler(req, res) {
     if (!session) return res.status(401).json({ error: 'Unauthorized' });
 
     if (path === '/bluesocket/register' && req.method === 'POST') {
-      const { device_id } = req.body;
+      const { device_id, device_type } = req.body;
       const connection_id = `conn_${uuidv4().replace(/-/g, '')}`;
-      await query('INSERT INTO connections (connection_id, user_id, session_id, device_id) VALUES (?, ?, ?, ?)', [connection_id, session.user_id, session.session_id, device_id || 'web']);
-      return res.status(200).json({ user_id: session.user_id, session_id: session.session_id, connection_id, device_id });
+      
+      // Ensure device exists first (FOREIGN KEY requirement)
+      await query('INSERT OR IGNORE INTO devices (device_id, user_id, device_type) VALUES (?, ?, ?)', [device_id || 'web_default', session.user_id, device_type || 'web']);
+      
+      await query('INSERT INTO connections (connection_id, user_id, session_id, device_id) VALUES (?, ?, ?, ?)', [connection_id, session.user_id, session.session_id, device_id || 'web_default']);
+      return res.status(200).json({ user_id: session.user_id, session_id: session.session_id, connection_id, device_id: device_id || 'web_default' });
     }
 
     if (path === '/bluesocket/join-group' && req.method === 'POST') {
@@ -52,70 +56,91 @@ export default async function handler(req, res) {
     }
 
     if (path === '/bluesocket/send' && req.method === 'POST') {
-      const { to_user_id, payload, event_type = 'message' } = req.body;
-      const message_id = `msg_${uuidv4().replace(/-/g, '')}`;
+      const { to_username, payload, message_id: client_message_id } = req.body;
+      const message_id = client_message_id || `msg_${uuidv4().replace(/-/g, '')}`;
       const timestamp = new Date().toISOString();
-      const queries = [{
-        sql: 'INSERT INTO messages (message_id, from_user_id, to_user_id, connection_id, payload, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-        args: [message_id, session.user_id, to_user_id, req.body.connection_id, JSON.stringify(payload), timestamp]
-      }];
 
-      const sqlBase = "INSERT INTO sync_events (user_id, connection_id, event_type, payload, timestamp) SELECT user_id, connection_id, ?, ?, ? FROM connections WHERE status = 'ACTIVE'";
-      const payloadStr = JSON.stringify({ message_id, from_username: session.username, from_user_id: session.user_id, target: to_user_id.startsWith('GRP_') ? to_user_id : (to_user_id === 'COMMUNITY' ? 'COMMUNITY' : 'PRIVATE'), payload });
-      
-      if (to_user_id === 'COMMUNITY') {
-        queries.push({ sql: sqlBase, args: [event_type, payloadStr, timestamp] });
-      } else if (to_user_id.startsWith('GRP_')) {
-        queries.push({ sql: sqlBase + " AND user_id IN (SELECT user_id FROM group_members WHERE group_id = ?)", args: [event_type, payloadStr, timestamp, to_user_id] });
-      } else {
-        queries.push({ sql: sqlBase + " AND user_id = ?", args: [event_type, payloadStr, timestamp, to_user_id] });
+      // 1. Idempotency Check
+      const existing = await query('SELECT status, timestamp FROM messages WHERE message_id = ?', [message_id]);
+      if (existing.rows.length > 0) {
+        return res.status(200).json({ sync_status: 'already_exists', message_id, timestamp: existing.rows[0].timestamp });
       }
-      await transaction(queries);
-      return res.status(200).json({ sync_status: 'success', message_id, timestamp });
+
+      // 2. Resolve or Create Target User
+      let to_user_id;
+      const userRes = await query('SELECT user_id FROM users WHERE username = ?', [to_username]);
+      if (userRes.rows.length > 0) {
+        to_user_id = userRes.rows[0].user_id;
+      } else {
+        to_user_id = `usr_${uuidv4().replace(/-/g, '')}`;
+        await query('INSERT INTO users (user_id, username, password_hash) VALUES (?, ?, ?)', [to_user_id, to_username, 'auto_generated']);
+      }
+      
+      // 3. Insert with 'SENT' status and return immediately
+      await query('INSERT INTO messages (message_id, from_user_id, to_user_id, connection_id, payload, timestamp, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+        [message_id, session.user_id, to_user_id, req.body.connection_id || 'default', JSON.stringify(payload), timestamp, 'SENT']);
+
+      return res.status(201).json({ sync_status: 'sent', message_id, timestamp });
     }
 
     if (path === '/bluesocket/sync' && req.method === 'GET') {
-      const { connection_id, last_sync_timestamp, wait } = req.query;
-      let attempts = 0, maxWait = wait === 'true' ? 8 : 1, events = [], startTime = last_sync_timestamp;
-      while (attempts < maxWait) {
-        if (!startTime) {
-          const c = await query('SELECT created_at FROM connections WHERE connection_id = ?', [connection_id]);
-          if (c.rows.length > 0) startTime = c.rows[0].created_at;
-        }
-        const evs = await query('SELECT * FROM sync_events WHERE connection_id = ? AND timestamp > ? ORDER BY timestamp ASC', [connection_id, startTime]);
-        events = evs.rows.map(r => ({ ...r, payload: JSON.parse(r.payload) }));
-        // 2. Deep Scan: Check messages table for missed data (Community, Groups, Private)
-        const msgs = await query(`
-          SELECT m.*, u.username as from_username 
-          FROM messages m
-          JOIN users u ON m.from_user_id = u.user_id
-          WHERE (m.to_user_id = ? OR m.to_user_id = 'COMMUNITY' OR m.to_user_id IN (SELECT group_id FROM group_members WHERE user_id = ?))
-          AND m.timestamp > ? 
-          ORDER BY m.timestamp ASC
-        `, [session.user_id, session.user_id, startTime]);
+      const { connection_id, last_sync_timestamp } = req.query;
+      let events = [];
+      let startTime = last_sync_timestamp;
 
-        msgs.rows.forEach(m => {
-          if (!events.some(e => e.payload.message_id === m.message_id)) {
-            const targetType = m.to_user_id === 'COMMUNITY' ? 'COMMUNITY' : (m.to_user_id.startsWith('GRP_') ? m.to_user_id : 'PRIVATE');
-            events.push({ 
-              event_id: m.message_id, 
-              event_type: 'message', 
-              timestamp: m.timestamp, 
-              payload: { 
-                message_id: m.message_id, 
-                from_username: m.from_username,
-                from_user_id: m.from_user_id, 
-                target: targetType, 
-                payload: JSON.parse(m.payload) 
-              } 
-            });
-          }
-        });
-        if (events.length > 0 || wait !== 'true') break;
-        await new Promise(r => setTimeout(r, 1000));
-        attempts++;
+      if (!startTime) {
+        const c = await query('SELECT created_at FROM connections WHERE connection_id = ?', [connection_id]);
+        if (c.rows.length > 0) startTime = c.rows[0].created_at;
+        else startTime = new Date(0).toISOString();
       }
-      return res.status(200).json({ sync_status: 'success', server_timestamp: new Date().toISOString(), events });
+
+      // Single Database Check (No loop)
+      const msgs = await query(`
+        SELECT m.*, u.username as from_username 
+        FROM messages m
+        JOIN users u ON m.from_user_id = u.user_id
+        WHERE m.timestamp > ? 
+        AND (
+          m.to_user_id = 'COMMUNITY' 
+          OR m.to_user_id = ? 
+          OR m.to_user_id IN (SELECT group_id FROM group_members WHERE user_id = ?)
+        )
+        ORDER BY m.timestamp ASC
+      `, [startTime, session.user_id, session.user_id]);
+
+      if (msgs.rows.length > 0) {
+        events = msgs.rows.map(m => {
+          const targetType = m.to_user_id === 'COMMUNITY' ? 'COMMUNITY' : (m.to_user_id.startsWith('GRP_') ? m.to_user_id : 'PRIVATE');
+          return {
+            event_id: m.message_id,
+            event_type: 'message',
+            timestamp: m.timestamp,
+            payload: {
+              message_id: m.message_id,
+              from_username: m.from_username,
+              from_user_id: m.from_user_id,
+              target: targetType,
+              payload: JSON.parse(m.payload)
+            }
+          };
+        });
+
+        // Update status to 'DELIVERED' but DO NOT DELETE
+        const privateMsgIds = msgs.rows
+          .filter(m => m.to_user_id === session.user_id && m.status === 'SENT')
+          .map(m => m.message_id);
+        
+        if (privateMsgIds.length > 0) {
+          const placeholders = privateMsgIds.map(() => '?').join(',');
+          await query(`UPDATE messages SET status = 'DELIVERED' WHERE message_id IN (${placeholders})`, privateMsgIds);
+        }
+      }
+
+      return res.status(200).json({ 
+        sync_status: events.length > 0 ? 'new_messages' : 'empty', 
+        server_timestamp: new Date().toISOString(), 
+        events 
+      });
     }
 
     if (path === '/bluesocket/presence' && req.method === 'GET') {

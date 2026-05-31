@@ -34,54 +34,73 @@ const formatTime = (ts) => {
 
 <style scoped>
 .notifications-container {
-  width: 300px;
+  width: 320px;
+  max-width: calc(100vw - 2rem);
   max-height: 400px;
   overflow-y: auto;
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 4px;
-  box-shadow: 0 10px 15px rgba(0,0,0,0.5);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+@media (max-width: 400px) {
+  .notifications-container {
+    position: fixed;
+    top: 64px;
+    right: 1rem;
+    left: 1rem;
+    width: auto;
+    max-width: none;
+  }
 }
 
 .notification-item {
-  padding: 0.75rem;
-  border-bottom: 1px solid #333;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
   display: flex;
   gap: 0.75rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: var(--transition);
 }
 
 .notification-item:hover {
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .notification-item.unread {
-  background: #252525;
-  border-left: 3px solid #00a8ff;
+  background: rgba(0, 168, 255, 0.05);
+  border-left: 3px solid var(--primary);
 }
 
 .notif-icon {
   font-size: 1.2rem;
 }
 
+.notif-content {
+  flex: 1;
+}
+
 .notif-message {
   font-size: 0.9rem;
   margin-bottom: 0.25rem;
+  line-height: 1.4;
+  color: var(--text-main);
 }
 
 .notif-time {
-  font-size: 0.7rem;
-  color: #888;
+  font-size: 0.75rem;
+  color: var(--text-dim);
 }
 
 .no-notifs {
-  padding: 1rem;
+  padding: 2rem;
   text-align: center;
-  color: #666;
+  color: var(--text-dim);
+  font-size: 0.9rem;
 }
 
-.info .notif-icon { color: #00a8ff; }
-.warning .notif-icon { color: #fbc531; }
-.error .notif-icon { color: #ff5252; }
+.info .notif-icon { color: var(--primary); }
+.warning .notif-icon { color: var(--warning); }
+.error .notif-icon { color: var(--error); }
 </style>

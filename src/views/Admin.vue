@@ -22,36 +22,59 @@
       </div>
 
       <!-- Main Terminal Section -->
-      <div class="terminal glass">
-        <div class="terminal-header">
-          <div class="header-left">
-            <span class="dot red"></span>
-            <span class="dot yellow"></span>
-            <span class="dot green"></span>
-            <span class="terminal-title">system@bluesocket: ~</span>
+      <div class="main-content-row">
+        <div class="terminal glass">
+          <div class="terminal-header">
+            <div class="header-left">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="terminal-title">system@bluesocket: ~</span>
+            </div>
+            <div class="header-right">
+              v1.0.0 — STATELESS_MODE
+            </div>
           </div>
-          <div class="header-right">
-            v1.0.0 — STATELESS_MODE
+          
+          <div class="terminal-body" ref="terminalBody">
+            <div v-for="(log, index) in logs" :key="index" class="log-entry" :class="log.type">
+              <span class="ts">[{{ formatTime(log.timestamp) }}]</span>
+              <span class="p" v-if="log.type === 'command'">$</span>
+              <span class="txt">{{ log.message }}</span>
+            </div>
+          </div>
+          
+          <div class="terminal-footer">
+            <span class="prompt">➜</span>
+            <input 
+              type="text" 
+              v-model="command" 
+              @keyup.enter="handleCommand" 
+              placeholder="Enter system command (help for list)..." 
+              class="command-input"
+            />
           </div>
         </div>
-        
-        <div class="terminal-body" ref="terminalBody">
-          <div v-for="(log, index) in logs" :key="index" class="log-entry" :class="log.type">
-            <span class="ts">[{{ formatTime(log.timestamp) }}]</span>
-            <span class="p" v-if="log.type === 'command'">$</span>
-            <span class="txt">{{ log.message }}</span>
+
+        <!-- Documentation Sidebar -->
+        <div class="docs-sidebar glass">
+          <div class="docs-header">
+            <h3>📖 DOCS</h3>
           </div>
-        </div>
-        
-        <div class="terminal-footer">
-          <span class="prompt">➜</span>
-          <input 
-            type="text" 
-            v-model="command" 
-            @keyup.enter="handleCommand" 
-            placeholder="Enter system command (help for list)..." 
-            class="command-input"
-          />
+          <div class="docs-links">
+            <a href="/docs/README.md" target="_blank" class="doc-link">
+              <span class="icon">🚀</span> Intro
+            </a>
+            <a href="/docs/architecture.md" target="_blank" class="doc-link">
+              <span class="icon">🏛️</span> Logic
+            </a>
+            <a href="/docs/usage-guide.md" target="_blank" class="doc-link">
+              <span class="icon">📲</span> Guide
+            </a>
+            <a href="/docs/security.md" target="_blank" class="doc-link">
+              <span class="icon">🛡️</span> Security
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -217,6 +240,13 @@ onUnmounted(() => {
   background-image: linear-gradient(rgba(0, 168, 255, 0.02) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(0, 168, 255, 0.02) 1px, transparent 1px);
   background-size: 40px 40px;
+  overflow-y: auto;
+}
+
+@media (max-width: 600px) {
+  .admin-view {
+    padding: 1rem;
+  }
 }
 
 .monitor-grid {
@@ -234,12 +264,36 @@ onUnmounted(() => {
   gap: 2rem;
   align-items: center;
   border-radius: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .stats-bar {
+    gap: 1rem;
+    padding: 1rem;
+  }
+  .system-status {
+    width: 100%;
+    justify-content: center;
+    order: -1;
+    margin-left: 0 !important;
+  }
 }
 
 .stat-card {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  flex: 1;
+  min-width: 120px;
+}
+
+@media (max-width: 480px) {
+  .stat-card {
+    min-width: 100%;
+    align-items: center;
+    text-align: center;
+  }
 }
 
 .stat-card .label {
@@ -290,13 +344,74 @@ onUnmounted(() => {
   100% { transform: scale(1); opacity: 1; }
 }
 
-.terminal {
+.main-content-row {
+  display: flex;
+  gap: 1.5rem;
   flex: 1;
+  min-height: 400px;
+}
+
+@media (max-width: 900px) {
+  .main-content-row {
+    flex-direction: column;
+  }
+}
+
+.terminal {
+  flex: 3;
   border-radius: 16px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+.docs-sidebar {
+  flex: 1;
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.docs-header h3 {
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.docs-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.doc-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.doc-link:hover {
+  background: rgba(0, 168, 255, 0.1);
+  border-color: var(--primary);
+  transform: translateX(5px);
+}
+
+.doc-link .icon {
+  font-size: 1.1rem;
 }
 
 .terminal-header {
@@ -307,6 +422,12 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .header-right {
+    display: none;
+  }
 }
 
 .header-left {
@@ -344,6 +465,13 @@ onUnmounted(() => {
   font-family: 'Fira Code', monospace;
   font-size: 0.9rem;
   line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .terminal-body {
+    padding: 1rem;
+    font-size: 0.8rem;
+  }
 }
 
 .log-entry {
@@ -384,4 +512,11 @@ onUnmounted(() => {
   font-size: 1rem;
   outline: none;
 }
+
+@media (max-width: 480px) {
+  .command-input {
+    font-size: 0.9rem;
+  }
+}
+
 </style>
