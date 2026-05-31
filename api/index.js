@@ -103,6 +103,18 @@ export default async function handler(req, res) {
       return res.status(200).json({ users: r.rows });
     }
 
+    if (path === '/bluesocket/resolve' && req.method === 'POST') {
+      const { usernames } = req.body; // Expects an array of usernames
+      if (!usernames || !Array.isArray(usernames)) return res.status(400).json({ error: 'usernames array required' });
+      
+      const placeholders = usernames.map(() => '?').join(',');
+      const r = await query(`SELECT user_id, username FROM users WHERE username IN (${placeholders})`, usernames);
+      
+      const resolutionMap = {};
+      r.rows.forEach(row => { resolutionMap[row.username] = row.user_id; });
+      return res.status(200).json({ resolved: resolutionMap });
+    }
+
     return res.status(404).json({ error: 'Route not found' });
   } catch (error) {
     console.error('API Error:', error);

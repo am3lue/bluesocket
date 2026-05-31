@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handshake Demo - BlueSocket</title>
+    <style>
+        :root { --primary: #00a8ff; --bg: #0a0a0b; --card: #141417; --text: #f0f0f2; --dim: #9ea0a5; --border: rgba(255, 255, 255, 0.08); --success: #00d2d3; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { width: 90%; max-width: 450px; background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 2rem; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .handshake-step { margin-bottom: 1.5rem; padding: 1rem; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); }
+        .step-title { font-size: 0.7rem; font-weight: 800; color: var(--primary); text-transform: uppercase; margin-bottom: 8px; }
+        .step-content { font-size: 0.9rem; }
+        .code { font-family: 'Fira Code', monospace; color: var(--success); font-size: 0.8rem; background: #000; padding: 4px 8px; border-radius: 4px; display: block; margin-top: 5px; overflow-x: auto;}
+        .btn { background: var(--primary); border: none; color: #000; padding: 10px 20px; border-radius: 8px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 1rem; }
+        .status { text-align: center; font-size: 0.8rem; color: var(--dim); margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 style="margin-top:0">🤝 BlueSocket Handshake</h2>
+        <p style="font-size: 0.85rem; color: var(--dim)">This app doesn't know who anyone is. It must ask the Middle Man to resolve usernames into "Keys" (UUIDs).</p>
+
+        <div class="handshake-step">
+            <div class="step-title">1. Request (The Ask)</div>
+            <div class="step-content">Asking for: <span id="target-name" style="font-weight: bold;">Client_B, Client_C</span></div>
+        </div>
+
+        <div class="handshake-step">
+            <div class="step-title">2. Resolve (The Middle Man)</div>
+            <div class="step-content">Server is looking up unique IDs...</div>
+        </div>
+
+        <div class="handshake-step">
+            <div class="step-title">3. Secure Session (The Keys)</div>
+            <div id="keys-box" class="step-content">Waiting for keys...</div>
+        </div>
+
+        <button id="handshake-btn" class="btn">PERFORM HANDSHAKE</button>
+        <div id="status" class="status">Offline</div>
+    </div>
+
+    <script>
+        const BASE_URL = 'https://bluesocket-six.vercel.app/api';
+        const IDENTITY = { username: 'App_A', password: '143Anna_A' };
+        const TARGETS = ['Client_B', 'Client_C', 'Client_D'];
+
+        const btn = document.getElementById('handshake-btn');
+        const keysBox = document.getElementById('keys-box');
+        const status = document.getElementById('status');
+
+        async function performHandshake() {
+            try {
+                btn.disabled = true;
+                status.innerText = "Step 1: Authenticating...";
+                
+                // 1. Auth
+                const authRes = await fetch(`${BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(IDENTITY)
+                });
+                const { token } = await authRes.json();
+
+                // 2. Resolve (The 3-Way Logic)
+                status.innerText = "Step 2: Resolving Handshake...";
+                const resolveRes = await fetch(`${BASE_URL}/bluesocket/resolve`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ usernames: TARGETS })
+                });
+                const { resolved } = await resolveRes.json();
+
+                // 3. Complete
+                status.innerText = "Step 3: Session Secured!";
+                keysBox.innerHTML = `<strong>Handshake Complete!</strong> Locked identities acquired:`;
+                
+                Object.entries(resolved).forEach(([name, id]) => {
+                    const code = document.createElement('code');
+                    code.className = 'code';
+                    code.innerText = `${name} ⮕ ${id}`;
+                    keysBox.appendChild(code);
+                });
+
+                status.style.color = '#00d2d3';
+                btn.innerText = "HANDSHAKE SUCCESSFUL";
+                
+            } catch (e) {
+                status.innerText = "Handshake Failed: " + e.message;
+                btn.disabled = false;
+            }
+        }
+
+        btn.onclick = performHandshake;
+    </script>
+</body>
+</html>
