@@ -1,23 +1,58 @@
 <template>
   <div class="admin-view">
-    <div class="terminal">
-      <div class="terminal-header">
-        <span>BLUESOCKET MONITOR v1.0.0</span>
-        <div class="stats">
-          <span>USERS: {{ stats.users }}</span>
-          <span>CONNS: {{ stats.active_connections }}</span>
-          <span>MSGS: {{ stats.total_messages }}</span>
+    <div class="monitor-grid">
+      <!-- Top Stats Bar -->
+      <div class="stats-bar glass">
+        <div class="stat-card">
+          <span class="label">USERS</span>
+          <span class="value">{{ stats.users }}</span>
+        </div>
+        <div class="stat-card highlight">
+          <span class="label">ACTIVE CONNS</span>
+          <span class="value">{{ stats.active_connections }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">TOTAL MSGS</span>
+          <span class="value">{{ stats.total_messages }}</span>
+        </div>
+        <div class="system-status">
+          <div class="pulse-dot"></div>
+          LIVE PROTOCOL
         </div>
       </div>
-      <div class="terminal-body" ref="terminalBody">
-        <div v-for="(log, index) in logs" :key="index" class="log-entry" :class="log.type">
-          <span class="timestamp">[{{ formatTime(log.timestamp) }}]</span>
-          <span class="message">{{ log.message }}</span>
+
+      <!-- Main Terminal Section -->
+      <div class="terminal glass">
+        <div class="terminal-header">
+          <div class="header-left">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+            <span class="terminal-title">system@bluesocket: ~</span>
+          </div>
+          <div class="header-right">
+            v1.0.0 — STATELESS_MODE
+          </div>
         </div>
-      </div>
-      <div class="terminal-footer">
-        <span class="prompt">></span>
-        <input type="text" v-model="command" @keyup.enter="handleCommand" placeholder="Enter command..." />
+        
+        <div class="terminal-body" ref="terminalBody">
+          <div v-for="(log, index) in logs" :key="index" class="log-entry" :class="log.type">
+            <span class="ts">[{{ formatTime(log.timestamp) }}]</span>
+            <span class="p" v-if="log.type === 'command'">$</span>
+            <span class="txt">{{ log.message }}</span>
+          </div>
+        </div>
+        
+        <div class="terminal-footer">
+          <span class="prompt">➜</span>
+          <input 
+            type="text" 
+            v-model="command" 
+            @keyup.enter="handleCommand" 
+            placeholder="Enter system command (help for list)..." 
+            class="command-input"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -49,7 +84,7 @@ const fetchStats = async () => {
     
     // Add new activity to logs
     data.recent_activity.forEach(act => {
-      const msg = `${act.username} -> ${act.event_type}`;
+      const msg = `${act.username.toUpperCase()} -> ${act.event_type}`;
       if (!logs.value.some(l => l.message === msg && l.timestamp === act.timestamp)) {
         logs.value.push({
           timestamp: act.timestamp,
@@ -102,13 +137,13 @@ const sendSystemNotification = async (userId, message) => {
     });
     logs.value.push({
       timestamp: new Date().toISOString(),
-      message: `Notification sent to ${userId}`,
+      message: `SUCCESS: Notification dispatched to ${userId}`,
       type: 'info'
     });
   } catch (err) {
     logs.value.push({
       timestamp: new Date().toISOString(),
-      message: `Failed to send notification: ${err.message}`,
+      message: `ERROR: Failed to dispatch: ${err.message}`,
       type: 'error'
     });
   }
@@ -116,23 +151,24 @@ const sendSystemNotification = async (userId, message) => {
 
 const handleCommand = () => {
   if (!command.value) return;
+  const rawCmd = command.value;
   
   logs.value.push({
     timestamp: new Date().toISOString(),
-    message: `Executing: ${command.value}...`,
+    message: rawCmd,
     type: 'command'
   });
   
-  if (command.value === 'clear') {
+  if (rawCmd === 'clear') {
     logs.value = [];
-  } else if (command.value === 'help') {
+  } else if (rawCmd === 'help') {
     logs.value.push({
       timestamp: new Date().toISOString(),
-      message: 'Available commands: clear, help, stats, users, notify [user_id] [message]',
+      message: 'CORE_CMD: clear, help, stats, users, notify [user_id] [message]',
       type: 'info'
     });
-  } else if (command.value.startsWith('notify')) {
-    const parts = command.value.split(' ');
+  } else if (rawCmd.startsWith('notify')) {
+    const parts = rawCmd.split(' ');
     if (parts.length >= 3) {
       const targetUserId = parts[1];
       const message = parts.slice(2).join(' ');
@@ -140,10 +176,16 @@ const handleCommand = () => {
     } else {
       logs.value.push({
         timestamp: new Date().toISOString(),
-        message: 'Usage: notify [user_id] [message]',
+        message: 'USAGE: notify [user_id] [message]',
         type: 'error'
       });
     }
+  } else {
+    logs.value.push({
+      timestamp: new Date().toISOString(),
+      message: `UNKNOWN_CMD: ${rawCmd}`,
+      type: 'error'
+    });
   }
   
   command.value = '';
@@ -155,7 +197,7 @@ let interval = null;
 onMounted(() => {
   logs.value.push({
     timestamp: new Date().toISOString(),
-    message: 'Initializing monitor system...',
+    message: 'KERNEL: BlueSocket monitoring subsystem active.',
     type: 'info'
   });
   
@@ -171,74 +213,174 @@ onUnmounted(() => {
 <style scoped>
 .admin-view {
   height: 100%;
-  padding: 1rem;
-  box-sizing: border-box;
+  padding: 1.5rem;
+  background-image: linear-gradient(rgba(0, 168, 255, 0.02) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0, 168, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
-.terminal {
-  background: #000;
-  color: #0f0;
-  font-family: 'Courier New', Courier, monospace;
+.monitor-grid {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border: 1px solid #333;
-  border-radius: 4px;
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.stats-bar {
+  display: flex;
+  padding: 1.5rem;
+  gap: 2rem;
+  align-items: center;
+  border-radius: 16px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stat-card .label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+.stat-card .value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'Fira Code', monospace;
+  color: var(--text-main);
+}
+
+.stat-card.highlight .value {
+  color: var(--primary);
+  text-shadow: 0 0 10px var(--primary-glow);
+}
+
+.system-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 16px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--success);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.terminal {
+  flex: 1;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
 
 .terminal-header {
-  padding: 0.5rem 1rem;
-  background: #111;
-  border-bottom: 1px solid #333;
+  padding: 0.75rem 1.25rem;
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
-  font-weight: bold;
+  align-items: center;
+  font-size: 0.85rem;
 }
 
-.stats {
+.header-left {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.red { background: #ff5f56; }
+.yellow { background: #ffbd2e; }
+.green { background: #27c93f; }
+
+.terminal-title {
+  margin-left: 0.5rem;
+  color: var(--text-dim);
+  font-family: 'Fira Code', monospace;
+}
+
+.header-right {
+  font-weight: 600;
+  color: var(--text-dim);
+  font-size: 0.75rem;
 }
 
 .terminal-body {
   flex: 1;
+  padding: 1.5rem;
   overflow-y: auto;
-  padding: 1rem;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 .log-entry {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  gap: 0.75rem;
 }
 
-.timestamp {
-  color: #888;
-  margin-right: 0.5rem;
-}
+.ts { color: var(--text-dim); flex-shrink: 0; }
+.p { color: var(--primary); font-weight: bold; }
+.txt { word-break: break-all; }
 
-.activity { color: #00a8ff; }
-.log { color: #ff9f43; }
-.command { color: #fff; }
-.info { color: #0f0; }
+.activity { color: #82aaff; }
+.log { color: #f78c6c; }
+.command { color: #c3e88d; }
+.info { color: #c792ea; }
+.error { color: var(--error); }
 
 .terminal-footer {
-  padding: 0.5rem 1rem;
-  background: #111;
-  border-top: 1px solid #333;
+  padding: 1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
+  gap: 1rem;
 }
 
 .prompt {
-  margin-right: 0.5rem;
+  color: var(--primary);
   font-weight: bold;
 }
 
-input {
+.command-input {
   background: transparent;
   border: none;
-  color: #0f0;
+  color: var(--text-main);
   flex: 1;
-  font-family: inherit;
+  font-family: 'Fira Code', monospace;
   font-size: 1rem;
   outline: none;
 }

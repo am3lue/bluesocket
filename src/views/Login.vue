@@ -1,20 +1,48 @@
 <template>
   <div class="login-view">
-    <div class="login-card">
-      <h1>Welcome to BlueSocket</h1>
-      <p>Please login or enter a new username to register.</p>
-      <form @submit.prevent="handleLogin">
-        <div class="form-group">
+    <div class="login-container glass">
+      <div class="login-header">
+        <div class="logo-icon-large">B</div>
+        <h1>BlueSocket</h1>
+        <p>Stateless Real-Time Protocol</p>
+      </div>
+      
+      <form @submit.prevent="handleLogin" class="login-form">
+        <div class="input-group">
           <label for="username">Username</label>
-          <input type="text" id="username" v-model="username" required placeholder="Enter username" />
+          <input 
+            type="text" 
+            id="username" 
+            v-model="username" 
+            required 
+            placeholder="e.g., satoshi" 
+            class="input-field"
+          />
         </div>
-        <div class="form-group">
+        <div class="input-group">
           <label for="password">Password</label>
-          <input type="password" id="password" v-model="password" required placeholder="Enter password" />
+          <input 
+            type="password" 
+            id="password" 
+            v-model="password" 
+            required 
+            placeholder="••••••••" 
+            class="input-field"
+          />
         </div>
-        <button type="submit" :disabled="loading">{{ loading ? 'Connecting...' : 'Login / Register' }}</button>
-        <p v-if="error" class="error">{{ error }}</p>
+        
+        <button type="submit" :disabled="loading" class="btn-primary login-btn">
+          {{ loading ? 'Establishing Session...' : 'Enter Workspace' }}
+        </button>
+        
+        <transition name="shake">
+          <p v-if="error" class="error-msg">{{ error }}</p>
+        </transition>
       </form>
+      
+      <div class="login-footer">
+        <span class="status-dot"></span> Secure Stateless Environment
+      </div>
     </div>
   </div>
 </template>
@@ -37,7 +65,7 @@ const handleLogin = async () => {
     await authService.login(username.value, password.value);
     router.push('/chat');
   } catch (err) {
-    error.value = err.message || 'Login failed';
+    error.value = err.message || 'Authentication failed';
   } finally {
     loading.value = false;
   }
@@ -50,58 +78,111 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   height: 100%;
+  padding: 1rem;
 }
 
-.login-card {
-  background: #1e1e1e;
-  padding: 2rem;
-  border-radius: 8px;
+.login-container {
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  max-width: 420px;
+  padding: 3rem 2.5rem;
+  border-radius: 24px;
+  text-align: center;
+}
+
+.logo-icon-large {
+  width: 64px;
+  height: 64px;
+  background: var(--primary);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #000;
+  margin: 0 auto 1.5rem;
+  box-shadow: 0 0 30px var(--primary-glow);
 }
 
 h1 {
-  margin-top: 0;
-  color: #00a8ff;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -1px;
 }
 
-.form-group {
-  margin-bottom: 1rem;
+p {
+  color: var(--text-dim);
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.login-form {
+  margin-top: 2.5rem;
+  text-align: left;
+}
+
+.input-group {
+  margin-bottom: 1.5rem;
 }
 
 label {
   display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
   margin-bottom: 0.5rem;
+  margin-left: 0.25rem;
 }
 
-input {
+.input-field {
   width: 100%;
-  padding: 0.75rem;
-  background: #2a2a2a;
-  border: 1px solid #444;
-  color: #fff;
-  border-radius: 4px;
-  box-sizing: border-box;
 }
 
-button {
+.login-btn {
   width: 100%;
-  padding: 0.75rem;
-  background: #00a8ff;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-button:disabled {
-  opacity: 0.6;
-}
-
-.error {
-  color: #ff5252;
+  padding: 14px;
+  font-size: 1rem;
   margin-top: 1rem;
+}
+
+.error-msg {
+  color: var(--error);
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 1rem;
+  background: rgba(255, 82, 82, 0.1);
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.login-footer {
+  margin-top: 2.5rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--success);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--success);
+}
+
+/* Animations */
+.shake-enter-active {
+  animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
 }
 </style>

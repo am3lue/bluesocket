@@ -1,8 +1,17 @@
 <template>
-  <div class="message-wrapper" :class="{ mine: isMine }">
-    <div class="message-bubble">
-      <div class="message-text">{{ message.text }}</div>
-      <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+  <div class="message-row" :class="{ 'mine': isMine }">
+    <div v-if="!isMine" class="avatar-tiny">
+      {{ message.from.charAt(0).toUpperCase() }}
+    </div>
+    
+    <div class="message-content">
+      <div class="message-bubble" :class="{ 'glass-bubble': !isMine }">
+        <div class="text">{{ message.text }}</div>
+        <div class="meta">
+          <span class="time">{{ formatTime(message.timestamp) }}</span>
+          <span v-if="isMine" class="status-check">✓✓</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -20,36 +29,77 @@ const formatTime = (ts) => {
 </script>
 
 <style scoped>
-.message-wrapper {
+.message-row {
   display: flex;
-  margin-bottom: 0.5rem;
+  align-items: flex-end;
+  gap: 0.75rem;
+  max-width: 85%;
 }
 
-.message-wrapper.mine {
-  justify-content: flex-end;
+.message-row.mine {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.avatar-tiny {
+  width: 28px;
+  height: 28px;
+  background: var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
 }
 
 .message-bubble {
-  max-width: 70%;
-  padding: 0.75rem;
-  border-radius: 8px;
-  background: #2a2a2a;
+  padding: 0.75rem 1rem;
+  border-radius: 18px;
   position: relative;
-}
-
-.mine .message-bubble {
-  background: #00a8ff;
-  color: #fff;
-}
-
-.message-text {
+  font-size: 0.95rem;
+  line-height: 1.4;
   word-break: break-word;
 }
 
-.message-time {
-  font-size: 0.7rem;
-  opacity: 0.6;
+.message-row.mine .message-bubble {
+  background: var(--primary);
+  color: #000;
+  border-bottom-right-radius: 4px;
+  font-weight: 500;
+  box-shadow: 0 4px 15px var(--primary-glow);
+}
+
+.glass-bubble {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-bottom-left-radius: 4px;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  justify-content: flex-end;
   margin-top: 0.25rem;
-  text-align: right;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.message-row.mine .meta {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.status-check {
+  font-weight: bold;
 }
 </style>

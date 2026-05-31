@@ -29,12 +29,20 @@ class ApiService {
       headers,
     });
 
+    const text = await response.text();
+    console.log(`API Response (${endpoint}):`, text);
+
     if (response.status === 401) {
-      // Handle unauthorized (maybe redirect to login or clear token)
       this.setToken(null);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Invalid JSON response from server: ${text.substring(0, 100)}`);
+    }
+
     if (!response.ok) {
       throw new Error(data.error || 'API Request failed');
     }
