@@ -33,13 +33,11 @@ async function initDb() {
       const tables = [
         'group_members',
         'groups',
-        'sync_events',
         'messages',
         'connections',
         'devices',
         'sessions',
         'users',
-        'notifications',
         'audit_logs'
       ];
 
@@ -51,7 +49,7 @@ async function initDb() {
       console.log('✨ Database clean complete.');
     }
 
-    console.log('🚀 Initializing BlueSocket Database Schema...');
+    console.log('🚀 Initializing BlueSockets Lean Database Schema...');
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS users (
@@ -114,31 +112,6 @@ async function initDb() {
     `);
 
     await client.execute(`
-      CREATE TABLE IF NOT EXISTS sync_events (
-        event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        connection_id TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (user_id),
-        FOREIGN KEY (connection_id) REFERENCES connections (connection_id)
-      );
-    `);
-
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS notifications (
-        notification_id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        read_status BOOLEAN DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (user_id)
-      );
-    `);
-
-    await client.execute(`
       CREATE TABLE IF NOT EXISTS audit_logs (
         log_id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT,
@@ -168,9 +141,14 @@ async function initDb() {
       );
     `);
 
+    // Create indices for performance scaling
+    await client.execute('CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages (timestamp);');
+    await client.execute('CREATE INDEX IF NOT EXISTS idx_messages_to_user ON messages (to_user_id);');
+    await client.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);');
+
     // Create a default group for the demo
     try {
-        await client.execute("INSERT INTO groups (group_id, name) VALUES ('GRP_1', 'Secret Group 1')");
+        await client.execute("INSERT INTO groups (group_id, name) VALUES ('GRP_1', 'Community Group')");
         console.log('✅ Default group GRP_1 created.');
     } catch {
         // Ignore if exists

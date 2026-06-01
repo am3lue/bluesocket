@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>database</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+            background-color: #f6f8fa;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        blockquote {
+            border-left: 4px solid #dfe2e5;
+            color: #6a737d;
+            padding-left: 1rem;
+            margin-left: 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 0.5rem 1rem;
+            text-align: left;
+        }
+        th {
+            background-color: #f6f8fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>BlueSocket v3 Database Schema</h1>
+<p>BlueSocket uses <strong>Turso (libsql)</strong> for edge persistence. The schema is designed to support high-concurrency stateless lookups.</p>
+<hr>
+<h2>🏗️ Relational Diagram</h2>
+<ul>
+<li><code>users</code> (1) ⮕ (N) <code>connections</code></li>
+<li><code>users</code> (1) ⮕ (N) <code>sessions</code></li>
+<li><code>users</code> (1) ⮕ (N) <code>messages</code></li>
+<li><code>groups</code> (1) ⮕ (N) <code>group_members</code></li>
+</ul>
+<hr>
+<h2>📊 Table Definitions</h2>
+<h3>1. <code>users</code></h3>
+<p>Master user records.</p>
+<ul>
+<li><code>user_id</code>: TEXT (Primary Key)</li>
+<li><code>username</code>: TEXT (Unique)</li>
+<li><code>password_hash</code>: TEXT</li>
+<li><code>created_at</code>: DATETIME</li>
+<li><code>last_seen</code>: DATETIME (Updated on every sync/send)</li>
+</ul>
+<h3>2. <code>connections</code></h3>
+<p>Active application instances.</p>
+<ul>
+<li><code>connection_id</code>: TEXT (Primary Key)</li>
+<li><code>user_id</code>: TEXT (FK)</li>
+<li><code>session_id</code>: TEXT (FK)</li>
+<li><code>device_id</code>: TEXT</li>
+<li><code>status</code>: TEXT (&#39;ACTIVE&#39;, &#39;INACTIVE&#39;)</li>
+<li><code>created_at</code>: DATETIME</li>
+<li><code>last_sync</code>: DATETIME</li>
+</ul>
+<h3>3. <code>messages</code></h3>
+<p>Permanent record of all communication. Used for Deep Scan.</p>
+<ul>
+<li><code>message_id</code>: TEXT (Primary Key)</li>
+<li><code>from_user_id</code>: TEXT (FK)</li>
+<li><code>to_user_id</code>: TEXT (Either <code>user_id</code>, <code>group_id</code>, or <code>COMMUNITY</code>)</li>
+<li><code>connection_id</code>: TEXT</li>
+<li><code>payload</code>: TEXT (JSON String)</li>
+<li><code>timestamp</code>: DATETIME</li>
+<li><code>status</code>: TEXT</li>
+</ul>
+<h3>4. <code>sync_events</code></h3>
+<p>Transient event queue for real-time delivery.</p>
+<ul>
+<li><code>event_id</code>: INTEGER (Auto-increment)</li>
+<li><code>user_id</code>: TEXT (Recipient ID)</li>
+<li><code>connection_id</code>: TEXT (Target Connection)</li>
+<li><code>event_type</code>: TEXT (&#39;message&#39;, &#39;notification&#39;, etc.)</li>
+<li><code>payload</code>: TEXT (JSON Stringified message details)</li>
+<li><code>timestamp</code>: DATETIME</li>
+</ul>
+<h3>5. <code>groups</code> &amp; <code>group_members</code></h3>
+<p>Permissions for targeted broadcasting.</p>
+<ul>
+<li><code>groups.group_id</code>: TEXT (Primary Key, prefixed with <code>GRP_</code>)</li>
+<li><code>group_members.group_id</code>: TEXT (FK)</li>
+<li><code>group_members.user_id</code>: TEXT (FK)</li>
+</ul>
+<hr>
+<h2>⚡ Indexing Strategy</h2>
+<ul>
+<li><strong><code>sync_events(connection_id, timestamp)</code></strong>: Highly optimized for Long Polling.</li>
+<li><strong><code>messages(to_user_id, timestamp)</code></strong>: Optimized for Deep Scanning.</li>
+<li><strong><code>users(username)</code></strong>: Optimized for the Handshake Resolution.</li>
+</ul>
+<hr>
+<p><strong>Tip</strong>: Use <code>node scripts/initDb.js --reset</code> to clear all tables and recreate this schema instantly. 🧹</p>
+
+</body>
+</html>

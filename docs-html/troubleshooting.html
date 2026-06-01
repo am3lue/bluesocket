@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>troubleshooting</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+            background-color: #f6f8fa;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        blockquote {
+            border-left: 4px solid #dfe2e5;
+            color: #6a737d;
+            padding-left: 1rem;
+            margin-left: 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 0.5rem 1rem;
+            text-align: left;
+        }
+        th {
+            background-color: #f6f8fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Troubleshooting</h1>
+<h2>Common Issues</h2>
+<h3>1. Database Connection Errors</h3>
+<ul>
+<li><strong>Error:</strong> <code>LibsqlError: URL_INVALID</code> or native binding errors on Vercel.</li>
+<li><strong>Solution:</strong> BlueSocket uses the <code>@libsql/client/http</code> package to ensure compatibility with Vercel serverless functions. Ensure your <code>TURSO_DATABASE_URL</code> starts with <code>https://</code> (the code automatically converts <code>libsql://</code> to <code>https://</code> for you).</li>
+</ul>
+<h3>2. Authentication Failures</h3>
+<ul>
+<li><strong>Error:</strong> <code>401 Unauthorized</code></li>
+<li><strong>Solution:</strong> Ensure your <code>JWT_SECRET</code> is consistent between restarts. Clear your browser&#39;s LocalStorage if you suspect a stale token.</li>
+</ul>
+<h3>3. Sync Latency</h3>
+<ul>
+<li><strong>Issue:</strong> Messages taking too long to appear.</li>
+<li><strong>Solution:</strong> Check the <code>syncInterval</code> in <code>src/services/bluesocket.js</code>. Default is 2000ms. Lowering it increases &quot;real-time&quot; feel but increases server load.</li>
+</ul>
+<h3>4. Vercel Functions Timeout</h3>
+<ul>
+<li><strong>Issue:</strong> API requests taking &gt; 10s.</li>
+<li><strong>Solution:</strong> Turso is usually fast, but ensure your database region matches your Vercel function region (e.g., <code>iad1</code> or <code>sfo1</code>).</li>
+</ul>
+
+</body>
+</html>

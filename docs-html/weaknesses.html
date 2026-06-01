@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>weaknesses</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+            background-color: #f6f8fa;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        blockquote {
+            border-left: 4px solid #dfe2e5;
+            color: #6a737d;
+            padding-left: 1rem;
+            margin-left: 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 0.5rem 1rem;
+            text-align: left;
+        }
+        th {
+            background-color: #f6f8fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Known Weaknesses &amp; Limitations</h1>
+<p>While BlueSocket v3 is designed for high-availability and stateless environments like Vercel, it makes specific architectural trade-offs that result in known weaknesses. These should be addressed before moving from prototype to production.</p>
+<hr>
+<h2>✅ Resolved &amp; Optimized</h2>
+<h3>💾 Scalability: Write Amplification (Community)</h3>
+<p><strong>Status: FIXED.</strong></p>
+<ul>
+<li><strong>The Optimization:</strong> We have moved to a &quot;Single Source of Truth&quot; model. Messages are only inserted once into the <code>messages</code> table. The <code>sync_events</code> table is no longer used for message distribution.</li>
+<li><strong>Impact:</strong> Community broadcasts now cost <code>O(1)</code> database writes instead of <code>O(N)</code>.</li>
+</ul>
+<h3>🔍 Database: Deep Scan Overhead</h3>
+<p><strong>Status: OPTIMIZED.</strong></p>
+<ul>
+<li><strong>The Optimization:</strong> The <code>/api/bluesocket/sync</code> endpoint now implements a two-tier querying strategy. A lightweight <code>SELECT MAX(timestamp)</code> pre-check is performed before any complex <code>JOIN</code> queries.</li>
+<li><strong>Impact:</strong> Significant reduction in database read load during idle periods.</li>
+</ul>
+<hr>
+<h2>🔐 1. Security: Plaintext Password Storage</h2>
+<p><strong>The Weakness:</strong> Currently, the API stores and compares passwords as plaintext strings in the <code>users</code> table.</p>
+<ul>
+<li><strong>Impact:</strong> If the database is compromised, all user passwords are leaked immediately.</li>
+<li><strong>Recommendation:</strong> Implement Argon2 or bcrypt hashing in <code>api/index.js</code> before saving or verifying credentials.</li>
+</ul>
+<h2>📡 2. Performance: Polling-Based Latency</h2>
+<p><strong>The Weakness:</strong> BlueSocket is &quot;Pull-Based&quot; rather than &quot;Push-Based.&quot; It relies on HTTP long-polling.</p>
+<ul>
+<li><strong>Impact:</strong> <ul>
+<li>There is an inherent latency (up to the polling interval) before a client sees a new message.</li>
+<li>High battery and data consumption on mobile devices due to frequent HTTP headers and wake-ups.</li>
+</ul>
+</li>
+<li><strong>Recommendation:</strong> For true real-time needs, supplement with a small WebSocket sidecar or move to a stateful server if scaling costs allow.</li>
+</ul>
+<h2>☁️ 5. Infrastructure: Vercel Execution Limits</h2>
+<p><strong>The Weakness:</strong> Long-polling on Vercel Hobby plans is capped at 10 seconds.</p>
+<ul>
+<li><strong>Impact:</strong> If a poll waits longer than 10 seconds, Vercel kills the function, potentially resulting in <code>504 Gateway Timeout</code> or <code>502 Bad Gateway</code> errors for the client.</li>
+<li><strong>Recommendation:</strong> Keep the <code>wait</code> parameter in the sync engine low (8-10s max) and implement aggressive client-side retry logic.</li>
+</ul>
+<h2>⏱️ 6. State: Inaccurate Presence</h2>
+<p><strong>The Weakness:</strong> Presence is calculated via a <code>last_seen</code> timestamp, but there is no background heartbeat mechanism.</p>
+<ul>
+<li><strong>Impact:</strong> Users may appear &quot;ONLINE&quot; for several seconds after they have closed their browser tab.</li>
+<li><strong>Recommendation:</strong> Implement a <code>navigator.sendBeacon</code> heartbeat on the <code>visibilitychange</code> or <code>beforeunload</code> events.</li>
+</ul>
+<hr>
+<p><strong>Understanding these weaknesses is key to building a robust BlueSocket implementation.</strong> 🚀🛡️</p>
+
+</body>
+</html>

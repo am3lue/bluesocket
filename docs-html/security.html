@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>security</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+            background-color: #f6f8fa;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        blockquote {
+            border-left: 4px solid #dfe2e5;
+            color: #6a737d;
+            padding-left: 1rem;
+            margin-left: 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 0.5rem 1rem;
+            text-align: left;
+        }
+        th {
+            background-color: #f6f8fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>BlueSocket v3 Security Model</h1>
+<p>BlueSocket is designed with a &quot;Defense in Depth&quot; approach to secure a stateless community environment.</p>
+<hr>
+<h2>🔐 1. Identity &amp; Handshaking</h2>
+<ul>
+<li><strong>JWT (JSON Web Tokens)</strong>: All requests are authenticated via a signed JWT. Tokens are short-lived (1 hour) and linked to a server-side session.</li>
+<li><strong>Intentional Handshaking</strong>: User UUIDs are never exposed in bulk. Clients must explicitly &quot;Resolve&quot; a username to get its private communication key. This prevents broad user-scraping.</li>
+</ul>
+<hr>
+<h2>📡 2. Transport Security</h2>
+<ul>
+<li><strong>Strict HTTPS</strong>: All traffic is encrypted over TLS. </li>
+<li><strong>CORS Management</strong>: The API implements a custom CORS middleware (<code>api/_lib/cors.js</code>) to prevent unauthorized cross-origin attacks while allowing intentional browser-based clients.</li>
+</ul>
+<hr>
+<h2>🗄️ 3. Database Security</h2>
+<ul>
+<li><strong>Parameterized Queries</strong>: Every database interaction uses the <code>@libsql/client</code> parameter binding to 100% prevent SQL Injection.</li>
+<li><strong>Atomic Transactions</strong>: Multi-step operations (like sending a community message) are wrapped in ACID-compliant transactions to prevent data leaks or partial delivery.</li>
+</ul>
+<hr>
+<h2>🛡️ 4. Resilience &amp; Protection</h2>
+<ul>
+<li><strong>Vercel WAF</strong>: The protocol is optimized for Vercel&#39;s Edge Firewall.</li>
+<li><strong>Cool-Down Logic</strong>: I&#39;ve built 1-second &quot;Breathing&quot; logic into the reference apps to prevent triggering rate-limiters during high-frequency tasks (like counting).</li>
+<li><strong>Stateless Requests</strong>: By never holding a socket open, the server is immune to &quot;Socket Pinning&quot; or slow-loris attacks.</li>
+</ul>
+<hr>
+<h2>⚠️ 5. Production Recommendations</h2>
+<ul>
+<li><strong>Password Hashing</strong>: The current prototype uses plaintext for demo speed. <strong>Production requires Argon2/bcrypt hashing.</strong></li>
+<li><strong>Secret Management</strong>: Ensure <code>JWT_SECRET</code> is at least 32 characters long and rotated periodically.</li>
+<li><strong>Full Risk Assessment</strong>: Review the <a href="./weaknesses.md">Weaknesses &amp; Limitations</a> document for other security considerations.</li>
+</ul>
+<p><strong>Secure. Intentional. Stateless.</strong> 🚀🔥🍼🛡️</p>
+
+</body>
+</html>
